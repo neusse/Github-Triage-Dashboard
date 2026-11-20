@@ -1,0 +1,43 @@
+{
+  "repo": "owner/repo",
+  "base_branch": null,
+  "agent": "codex",
+  "maintainers": [],
+  "labels": {
+    "statuses": {},
+    "priorities": [],
+    "kinds": [],
+    "area_prefix": null,
+    "claimed": null,
+    "tracker": null,
+    "wontfix": null,
+    "maintainer_decision": null,
+    "design_approved": null
+  },
+  "workflow": {
+    "require_maintainer_review": false,
+    "require_up_to_date": false,
+    "require_resolved_threads": false,
+    "require_status_label": false,
+    "required_checks": [],
+    "standing_authorization": [],
+    "post_authorization_comment": false,
+    "merge_method": null,
+    "stale_days": 14,
+    "gate_commands": [],
+    "policy_files": ["AGENTS.md", "CONTRIBUTING.md", "docs/agents/issue-tracker.md", "docs/agents/triage-labels.md"],
+    "pr_template": null,
+    "ci_workflow": null,
+    "blocked_title_pattern": null,
+    "fixture_branch_prefix": null
+  },
+  "triage_reports_issue": 0,
+  "schedule": {
+    "enabled": false,
+    "timezone": "local",
+    "issues_times": ["08:00", "16:00"],
+    "prs_times": ["08:30", "16:30"],
+    "max_issues": 5,
+    "max_prs": 1
+  }
+}

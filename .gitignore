@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.log
+snapshots/
+work/
+.env
+.env.*
+!.env.example
+config.json
+/.triage-dashboard/
+/CLAUDE.local.md
+/.claude/settings.local.json

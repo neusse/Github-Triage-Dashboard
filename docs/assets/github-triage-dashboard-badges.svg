@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="392" height="28" viewBox="0 0 392 28" role="img" aria-labelledby="title">
+  <title id="title">Python 3.11+, runs locally, BSD 3-Clause</title>
+  <rect width="124" height="28" rx="7" fill="#1a344f"/>
+  <rect x="133" width="119" height="28" rx="7" fill="#155249"/>
+  <rect x="261" width="131" height="28" rx="7" fill="#1a344f"/>
+  <g fill="#f1f6fb" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700">
+    <text x="62" y="19">Python 3.11+</text>
+    <text x="192.5" y="19">Runs locally</text>
+    <text x="326.5" y="19">BSD 3-Clause</text>
+  </g>
+</svg>

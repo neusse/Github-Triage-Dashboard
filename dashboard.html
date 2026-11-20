@@ -1,0 +1,1472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub Triage Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/docs/assets/github-triage-dashboard-icon.svg">
+<!-- Served locally from vendor/ (marked 12.0.2, DOMPurify 3.1.6). If they are missing, md() falls back to mdBasic(). -->
+<script src="/vendor/marked.min.js"></script>
+<script src="/vendor/purify.min.js"></script>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #1b1f24; --muted: #5d6673; --line: #e2e5ea;
+  --accent: #2f5bd3; --ok: #1f7a3d; --ok-bg: #e5f4ea; --bad: #b42318; --bad-bg: #fde8e6;
+  --warn: #9a5b00; --warn-bg: #fff3d6; --info: #2f5bd3; --info-bg: #e6edfc; --mute-bg: #eef0f3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --panel: #171b21; --ink: #e6e9ee; --muted: #9aa4b2; --line: #2a3039;
+    --accent: #7ea2ff; --ok: #6fd28f; --ok-bg: #16301f; --bad: #ff8b7f; --bad-bg: #3a1714;
+    --warn: #f5c062; --warn-bg: #352812; --info: #8fb0ff; --info-bg: #19243d; --mute-bg: #222831;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --panel: #171b21; --ink: #e6e9ee; --muted: #9aa4b2; --line: #2a3039;
+  --accent: #7ea2ff; --ok: #6fd28f; --ok-bg: #16301f; --bad: #ff8b7f; --bad-bg: #3a1714;
+  --warn: #f5c062; --warn-bg: #352812; --info: #8fb0ff; --info-bg: #19243d; --mute-bg: #222831;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+code, .mono { font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+.top { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
+header { padding: 10px 20px 0; display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; max-width: 1400px; margin: 0 auto; }
+header h1 { font-size: 17px; margin: 0; }
+header .meta { color: var(--muted); font-size: 12.5px; }
+header .spacer { flex: 1; }
+button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button:disabled { opacity: .6; cursor: wait; }
+nav.tabs { display: flex; gap: 2px; overflow-x: auto; padding: 8px 20px 0; max-width: 1400px; margin: 0 auto; }
+nav.tabs button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: none;
+  padding: 8px 14px 9px; color: var(--muted); white-space: nowrap; font-weight: 600; }
+nav.tabs button:hover { color: var(--ink); }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.badge { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 6px; border-radius: 999px;
+  font-size: 11.5px; background: var(--mute-bg); color: var(--muted); text-align: center; }
+.badge.bad { background: var(--bad-bg); color: var(--bad); } .badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+main { max-width: 1400px; margin: 0 auto; padding: 18px 20px 40px; }
+.panel[hidden] { display: none; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin: 0 0 16px; }
+section > h2 { font-size: 14px; margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+section > h2 small { color: var(--muted); font-weight: 400; }
+.pad { padding: 14px 16px; }
+
+/* Overview stats */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+  cursor: pointer; text-align: left; transition: border-color .15s; }
+.stat:hover { border-color: var(--accent); }
+.stat .big { font-size: 44px; font-weight: 700; line-height: 1.05; letter-spacing: -1px; }
+.stat .lbl { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.stat .sub { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.stat.ok .big { color: var(--ok); } .stat.bad .big { color: var(--bad); } .stat.warn .big { color: var(--warn); }
+.stack { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 10px; background: var(--mute-bg); }
+.stack span { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+
+/* Candidate card */
+.cand-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; padding: 16px 18px 6px; }
+.cand-head .num { font-size: 22px; font-weight: 700; }
+.cand-head .ttl { font-size: 17px; font-weight: 600; }
+.cand-meta { padding: 0 18px 12px; color: var(--muted); font-size: 12.5px; }
+.cand-body { display: grid; grid-template-columns: minmax(280px, 1.1fr) minmax(260px, 1fr); gap: 0; border-top: 1px solid var(--line); }
+.cand-body > div { padding: 14px 18px; }
+.cand-body > div + div { border-left: 1px solid var(--line); }
+.checklist { display: grid; gap: 6px; }
+.check { display: grid; grid-template-columns: 22px 80px 1fr; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 6px; }
+.check.ok { background: var(--ok-bg); } .check.no { background: var(--bad-bg); }
+.check .ic { font-weight: 700; } .check.ok .ic { color: var(--ok); } .check.no .ic { color: var(--bad); }
+.check .nm { font-weight: 600; font-size: 13px; }
+.check .tx { font-size: 13px; }
+.h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+.cmd { background: var(--mute-bg); border-radius: 6px; padding: 8px 10px; margin-top: 10px; overflow-x: auto; }
+.upnext-row { display: grid; grid-template-columns: 32px 64px 1fr auto; gap: 10px; align-items: baseline; padding: 9px 16px; border-bottom: 1px solid var(--line); }
+.upnext-row:last-child { border-bottom: 0; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap;
+  background: var(--mute-bg); color: var(--muted); }
+.pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); } .pill.info { background: var(--info-bg); color: var(--info); }
+.pill.lg { font-size: 13px; padding: 3px 12px; font-weight: 600; }
+.gates { display: flex; flex-wrap: wrap; gap: 4px; min-width: 260px; }
+.gate { font-size: 11.5px; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.gate.ok { background: var(--ok-bg); color: var(--ok); } .gate.no { background: var(--bad-bg); color: var(--bad); }
+ul.blk { margin: 0; padding-left: 18px; }
+td ul.blk { color: var(--muted); font-size: 12.5px; padding-left: 16px; }
+.muted { color: var(--muted); } .small { font-size: 12px; }
+.title-cell { min-width: 260px; }
+.row-item { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.row-item:last-child { border-bottom: 0; }
+.empty { padding: 14px 16px; color: var(--muted); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); align-items: center; }
+.filters select, .filters input { font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--ink); }
+.bars { display: grid; grid-template-columns: max-content 1fr max-content; gap: 4px 10px; align-items: center; font-size: 12.5px; }
+.bar { height: 8px; background: var(--accent); border-radius: 4px; opacity: .75; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.grid3 > section { margin: 0; }
+.chg-ctl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; font-weight: 400; }
+.chg-ctl select { font: inherit; font-size: 12.5px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.chg-ctl button { font-size: 12.5px; padding: 3px 10px; }
+.chg-group { display: grid; grid-template-columns: 12px 64px 1fr; gap: 4px 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); align-items: baseline; }
+.chg-group:last-child { border-bottom: 0; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--muted); }
+.dot.s0 { background: var(--bad); } .dot.s1 { background: var(--warn); } .dot.s2 { background: var(--line); }
+.chg-list { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.chg-list span { font-size: 12px; padding: 1px 7px; border-radius: 4px; background: var(--mute-bg); color: var(--ink); }
+.chg-list span.s0 { background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+.caught { padding: 14px 16px; color: var(--ok); }
+.chg-list a.chip { font-size: 12px; padding: 1px 7px; border-radius: 4px; background: var(--info-bg); color: var(--info); }
+.quote { margin-top: 6px; padding: 6px 10px; border-left: 3px solid var(--line); background: var(--mute-bg);
+  border-radius: 0 6px 6px 0; font-size: 12.5px; color: var(--ink); }
+.quote .who { font-weight: 600; } .quote .when { color: var(--muted); }
+.chg-sec { padding: 8px 16px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); background: var(--bg); border-bottom: 1px solid var(--line); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 3px 10px; font-size: 12.5px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; font-weight: 400; }
+.toolbar button { font-size: 12.5px; padding: 4px 12px; }
+.cand { display: grid; grid-template-columns: 24px 64px 1fr auto; gap: 4px 10px; align-items: baseline; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.cand:last-child { border-bottom: 0; }
+.cand input { margin: 0; }
+.spin { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--info); border-right-color: transparent;
+  border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; margin-right: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#draft textarea { width: 100%; min-height: 420px; font: 12.5px/1.5 "Cascadia Code", Consolas, monospace; padding: 10px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); resize: vertical; }
+/* Rendered GitHub Markdown */
+.md { font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
+.md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { margin: 18px 0 8px; line-height: 1.3; font-weight: 600; display: block; }
+.md h1 { font-size: 1.5em; } .md h2 { font-size: 1.3em; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.md h3 { font-size: 1.12em; } .md h4, .md h5, .md h6 { font-size: 1em; }
+.md p, .md ul, .md ol, .md blockquote, .md table, .md pre, .md details { margin: 0 0 10px; }
+.md ul, .md ol { padding-left: 2em; } .md li + li { margin-top: 2px; } .md li > ul, .md li > ol { margin: 2px 0 0; }
+.md ul.contains-task-list, .md li:has(> input[type="checkbox"]) { list-style: none; }
+.md ul:has(> li > input[type="checkbox"]) { padding-left: 1.2em; }
+.md input[type="checkbox"] { margin: 0 6px 0 -1.2em; vertical-align: -1px; }
+.md code { font: 12.5px "Cascadia Code", Consolas, monospace; background: var(--mute-bg); padding: 1px 5px; border-radius: 4px; }
+.md pre { background: var(--mute-bg); padding: 10px 12px; border-radius: 6px; overflow: auto; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { border-left: 3px solid var(--line); padding: 0 12px; color: var(--muted); }
+.md table { border-collapse: collapse; display: block; overflow: auto; max-width: 100%; }
+.md th, .md td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; vertical-align: top; }
+.md th { background: var(--mute-bg); font-weight: 600; }
+.md hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+.md img { max-width: 100%; }
+.md summary { cursor: pointer; }
+.md a.ref { font-weight: 500; }
+.md-box { max-height: 640px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; background: var(--panel); }
+.md-preview { min-height: 420px; }
+.md-preview[hidden], #draft textarea[hidden] { display: none; }
+.md-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 6px; }
+.md-tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.draft-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+.draft-bar select { font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.stage-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px 4px; }
+.stage-chips button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; }
+.stage-chips button.zero { opacity: .45; }
+.stage-chips button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; opacity: 1; }
+.stage-chips .arrow { color: var(--muted); align-self: center; font-size: 12px; }
+.ip-row { display: grid; grid-template-columns: 24px 28px 64px 1fr auto; gap: 4px 10px; align-items: baseline; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.ip-row:last-child { border-bottom: 0; }
+.ip-row .ord { color: var(--muted); font-size: 12px; text-align: right; }
+.cleanroom-box { border-color: var(--warn); }
+#worknav button { padding: 6px 14px; font-size: 13px; }
+button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+button.small { font-size: 12px; padding: 2px 9px; }
+.note { font-size: 12px; color: var(--muted); }
+.err { background: var(--bad-bg); color: var(--bad); padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; display: none; }
+footer { color: var(--muted); font-size: 12px; max-width: 1400px; margin: 0 auto; padding: 0 20px 30px; }
+@media (max-width: 760px) {
+  header, nav.tabs, main, footer { padding-left: 16px; padding-right: 16px; }
+  .cand-body { grid-template-columns: 1fr; } .cand-body > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .stat .big { font-size: 36px; }
+}
+
+.project-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%, 210px),1fr)); gap:12px; margin:12px 0; }
+.project-grid label { display:grid; gap:5px; font-size:14px; }
+.project-grid input, .project-grid select { width:100%; }
+.project-advanced { margin:16px 0; }
+.project-advanced textarea { display:block; width:100%; margin-top:8px; font:inherit; font-family:monospace; }
+.workflow-rules { min-inline-size:0; border:1px solid var(--line); border-radius:8px; margin:16px 0; padding:10px 12px 12px; }
+.workflow-rules legend { font-weight:600; padding:0 5px; }
+.workflow-rules p { margin:4px 0 10px; }
+.workflow-rules textarea { width:100%; min-height:66px; resize:vertical; font:inherit; }
+.workflow-rules details { margin-top:10px; }
+.workflow-rules summary { cursor:pointer; }
+.workflow-checks { display:grid; gap:8px; margin:10px 0; }
+.schedule-run { border-top:1px solid var(--line); padding:10px 0; }
+
+.inbox-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px 16px; padding:11px 16px; align-items:center; }
+.inbox-row + .inbox-row { border-top:1px solid var(--line); }
+.inbox-row > div { min-width:0; overflow-wrap:anywhere; }
+.inbox-row h3 { margin:2px 0; font-size:14px; font-weight:600; }
+.inbox-row p { margin:4px 0 0; }
+.inbox-row .inbox-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.inbox-link { display:inline-block; padding:4px 8px; border:1px solid var(--line); border-radius:5px; }
+#inbox-coverage:not(:empty) { padding:8px 16px; }
+.inbox-target { background:var(--mute-bg); border-left:3px solid var(--accent); scroll-margin-top:130px; }
+@media (max-width:580px) { .inbox-row { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <header>
+    <img src="/docs/assets/github-triage-dashboard-icon.svg" width="26" height="26" alt="">
+    <h1>GitHub triage</h1>
+    <label class="small" for="project-switch">Project</label>
+    <select id="project-switch" aria-label="Switch repository"><option>Loading projects…</option></select>
+    <span class="meta" id="repo"></span>
+    <span class="meta" id="mainsha"></span>
+    <span class="spacer"></span>
+    <span class="meta" id="stamp"></span>
+    <button id="theme" title="Toggle light/dark">◐</button>
+    <button class="primary" id="refresh">Refresh</button>
+  </header>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="overview">Overview</button>
+    <button role="tab" data-tab="inbox">Inbox<span class="badge" id="b-inbox"></span></button>
+    <button role="tab" data-tab="projects">Projects</button>
+    <button role="tab" data-tab="work">Work<span class="badge" id="b-work"></span></button>
+    <button role="tab" data-tab="changes">Changes<span class="badge" id="b-changes"></span></button>
+    <button role="tab" data-tab="reports">Triage reports</button>
+    <button role="tab" data-tab="prs">PR queue<span class="badge" id="b-prs"></span></button>
+    <button role="tab" data-tab="issues">Issues<span class="badge" id="b-issues"></span></button>
+    <button role="tab" data-tab="alerts">Alerts<span class="badge" id="b-alerts"></span></button>
+    <button role="tab" data-tab="decisions">Decisions<span class="badge" id="b-decisions"></span></button>
+    <button role="tab" data-tab="ci">CI &amp; rules<span class="badge" id="b-ci"></span></button>
+  </nav>
+</div>
+
+<main>
+  <div class="panel" id="p-inbox" hidden>
+    <section>
+      <h2>Cross-project inbox</h2>
+      <div class="filters">
+        <label for="inbox-project">Repository</label>
+        <select id="inbox-project"><option value="">All projects</option></select>
+        <button id="inbox-refresh">Refresh all repositories</button>
+        <span id="inbox-status" class="small muted" role="status"></span>
+      </div>
+      <div id="inbox-coverage" class="small"></div>
+    </section>
+    <section>
+      <h2>Drafts waiting for review <span class="badge" id="inbox-draft-count"></span></h2>
+      <div id="inbox-drafts"></div>
+    </section>
+    <section>
+      <h2>Maintainer decisions <span class="badge" id="inbox-decision-count"></span></h2>
+      <div id="inbox-decisions"></div>
+    </section>
+    <section>
+      <h2>Failed and missed triage runs <span class="badge" id="inbox-run-count"></span><small>Last 7 days</small></h2>
+      <div id="inbox-runs"></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-projects" hidden>
+    <section>
+      <h2>Project settings <span class="toolbar"><button type="button" id="project-add">Add repository</button></span></h2>
+      <div class="pad">
+        <form id="project-form">
+          <div class="project-grid">
+            <label>GitHub repository <input id="project-name" required placeholder="owner/repo" spellcheck="false"></label>
+            <label>Default agent <select id="project-agent"><option value="codex">Codex</option><option value="claude">Claude Code</option></select></label>
+            <label>Base branch <input id="project-branch" placeholder="Use GitHub default"></label>
+            <label>Maintainers <input id="project-maintainers" placeholder="GitHub logins, comma separated"></label>
+          </div>
+          <h3>Matt Pocock’s triage labels</h3>
+          <p class="muted small">The workflow assumes Matt’s engineering skills are available. Check or add the five standard labels for this repository.</p>
+          <div class="draft-bar"><button type="button" id="project-label-check">Check labels</button><button type="button" id="project-label-create" hidden>Create missing labels</button><span class="small" id="project-label-info" aria-live="polite"></span></div>
+          <fieldset class="workflow-rules">
+            <legend>Label mappings</legend>
+            <p class="muted small">Use a GitHub label name for each role. Check labels above to load suggestions. Clear a field to remove its preferred mapping.</p>
+            <div class="project-grid" id="primary-status-mappings"></div>
+            <details>
+              <summary>More status and special labels</summary>
+              <div class="project-grid" id="other-status-mappings"></div>
+              <div class="project-grid" id="special-label-mappings"></div>
+            </details>
+            <div class="project-grid">
+              <label>Priority labels <textarea id="rule-priorities" rows="3" placeholder="One per line, highest first"></textarea></label>
+              <label>Issue kind labels <textarea id="rule-kinds" rows="3" placeholder="One per line, highest first"></textarea></label>
+              <label>Area label prefix <input id="rule-area-prefix" placeholder="e.g. area:" spellcheck="false"></label>
+            </div>
+            <datalist id="project-github-labels"></datalist>
+          </fieldset>
+          <fieldset class="workflow-rules">
+            <legend>Review requirements</legend>
+            <p class="muted small">These are additional dashboard checks. GitHub still enforces its branch protection.</p>
+            <div class="workflow-checks">
+              <label><input type="checkbox" id="rule-maintainer-review"> Require a maintainer review of the current commit</label>
+              <label><input type="checkbox" id="rule-up-to-date"> Require the pull request to include the latest base branch commits</label>
+              <label><input type="checkbox" id="rule-resolved-threads"> Require all review threads to be resolved</label>
+              <label><input type="checkbox" id="rule-status-label"> Flag issues and pull requests without a status label</label>
+            </div>
+            <div class="project-grid">
+              <label>Additional required checks <textarea id="rule-required-checks" rows="3" placeholder="One exact GitHub check name per line"></textarea></label>
+            </div>
+          </fieldset>
+          <fieldset class="workflow-rules">
+            <legend>Merge settings</legend>
+            <div class="project-grid">
+              <label>Merge method <select id="rule-merge-method">
+                <option value="">Automatic (first allowed by GitHub)</option>
+                <option value="merge">Merge commit</option>
+                <option value="squash">Squash merge</option>
+                <option value="rebase">Rebase merge</option>
+              </select></label>
+              <label>Authors with standing authorization <input id="rule-standing-auth" placeholder="Maintainer logins, comma separated" aria-describedby="rule-standing-help" spellcheck="false"></label>
+            </div>
+            <p class="muted small" id="rule-standing-help">Use logins from Maintainers above. Landing still requires a click.</p>
+            <label><input type="checkbox" id="rule-auth-comment"> Post an authorization comment when landing a PR without standing authorization</label>
+          </fieldset>
+          <h3>Scheduled triage</h3>
+          <label><input id="schedule-enabled" type="checkbox"> Enable scheduled drafts while this dashboard is running</label>
+          <div class="project-grid">
+            <label>Issue times <input id="schedule-issues" placeholder="08:00, 16:00"></label>
+            <label>PR review times <input id="schedule-prs" placeholder="08:30, 16:30"></label>
+            <label>Time zone <input id="schedule-timezone" placeholder="local"></label>
+            <div class="project-grid">
+              <label>Issues per pass <input id="schedule-max-issues" type="number" min="1" max="25"></label>
+              <label>PRs per pass <input id="schedule-max-prs" type="number" min="1" max="25"></label>
+            </div>
+          </div>
+          <p class="muted small">Times use 24-hour HH:MM. <code>local</code> follows this computer’s time zone. Drafts appear in Work → Runs for review.</p>
+          <details class="project-advanced">
+            <summary>Advanced settings</summary>
+            <label class="sr-only" for="project-advanced">Advanced JSON settings</label>
+            <textarea id="project-advanced" rows="9" spellcheck="false"></textarea>
+          </details>
+          <div class="draft-bar"><button type="submit" class="primary" id="project-save">Save project</button><span class="small" id="project-message" aria-live="polite"></span></div>
+        </form>
+      </div>
+    </section>
+    <section id="project-runs" hidden>
+      <h2>Scheduled triage runs</h2>
+      <div class="pad">
+        <p class="small muted" id="schedule-next"></p>
+        <div class="draft-bar"><button id="schedule-run-issues">Draft issue triage now</button><button id="schedule-run-prs">Draft PR reviews now</button></div>
+        <div id="schedule-history" aria-live="polite"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div class="panel" id="p-overview">
+    <div class="stats" id="stats"></div>
+    <section>
+      <h2>Since last look <small class="chg-since"></small>
+        <span class="chg-ctl"><a href="#changes">all changes</a><button class="mark-seen">Mark all seen</button></span></h2>
+      <div id="chg-summary"></div>
+    </section>
+    <section id="candidate"></section>
+    <section>
+      <h2>Up next in the queue <small>click a row for the full queue</small></h2>
+      <div id="upnext"></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-work">
+    <div style="margin-bottom:14px"><span class="seg" id="worknav">
+      <button data-w="prs">PR reviews</button><button data-w="issues">Issue pipeline</button><button data-w="runs">Runs</button></span></div>
+    <section id="draft" hidden></section>
+    <div id="w-prs">
+      <section>
+        <h2>Ready to land <small>every gate passes on the exact head: no-findings review, required checks, up to date, no open threads</small></h2>
+        <div id="landable"></div>
+      </section>
+      <section>
+        <h2>Waiting on review <small>open PRs for the target branch without a current review</small>
+          <span class="toolbar"><button id="rv-selected">Review selected</button><button class="primary" id="rv-all">Review all waiting</button></span></h2>
+        <div id="cands"></div>
+      </section>
+    </div>
+    <div id="w-issues">
+      <section class="cleanroom-box">
+      </section>
+      <section>
+        <h2>Issue pipeline <small>ordered by configured priority, kind, and age</small>
+          <span class="toolbar" id="ip-tools"></span></h2>
+        <div class="stage-chips" id="stage-chips"></div>
+        <div id="ip-note" class="note" style="padding:8px 16px 0"></div>
+        <div id="ip-list"></div>
+      </section>
+    </div>
+    <div id="w-runs">
+      <section>
+        <h2>Runs <small>drafted one at a time with read-only tools; nothing is posted until you press Post</small></h2>
+        <div class="table-wrap"><table id="runs"></table></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="panel" id="p-changes">
+    <section>
+      <h2>Changes <small class="chg-since"></small>
+        <span class="chg-ctl"><span class="seg" id="chg-filter">
+          <button data-f="all" aria-pressed="true">All</button><button data-f="pr">PRs</button><button data-f="issue">Issues</button></span>
+          Compare with <select id="chg-base"></select><button class="mark-seen">Mark all seen</button></span></h2>
+      <div id="chg-all"></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-prs">
+    <section>
+      <h2>PR queue <small>suggested landing order: ready first, stacked PRs after their base, then oldest</small></h2>
+      <div class="table-wrap"><table id="prs"></table></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-issues">
+    <div class="grid3" id="mix" style="margin-bottom:16px"></div>
+    <section>
+      <h2>Issues <small id="issuecount"></small></h2>
+      <div class="filters">
+        <select id="f-prio"><option value="">All priorities</option></select>
+        <select id="f-status"><option value="">All statuses</option></select>
+        <select id="f-area"><option value="">All areas</option></select>
+        <label class="small muted"><input type="checkbox" id="f-flag"> flagged only</label>
+        <input id="f-text" placeholder="Search title or #" size="24">
+      </div>
+      <div class="table-wrap"><table id="issues"></table></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-alerts">
+    <section>
+      <h2>Alerts <small>label drift, unowned urgent work, stale waits, CI start failures</small></h2>
+      <div id="alerts"></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-decisions">
+    <section>
+      <h2>Maintainer decisions <small>issues marked for a decision</small></h2>
+      <div id="decisions"></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-reports">
+    <section>
+      <h2>Scheduled triage reports <small id="rp-meta">the latest reports saved in the configured issue</small>
+        <span class="toolbar"><button class="small" id="rp-reload">Reload</button></span></h2>
+      <div class="pad" id="reports"><div class="note">Loading…</div></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-ci">
+    <section>
+      <h2 id="ci-heading">Workflow runs</h2>
+      <div class="pad" id="ci"></div>
+    </section>
+    <section>
+      <h2>Branch rules <small>GitHub protections and configured gates</small></h2>
+      <div class="pad" id="rules"></div>
+    </section>
+  </div>
+</main>
+<footer>
+  Refresh and drafting only read from GitHub. Posting, publishing, and merge actions apply the changes you confirm.
+</footer>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let SNAP = null;
+const PROJECT_ROUTE = location.pathname.match(/^\/p\/[^/]+\/[^/]+/)?.[0] || "";
+const pageParams = new URLSearchParams(location.search);
+const inboxIssue = pageParams.get("issue");
+let inboxIssueShown = false;
+const projectFetch = (url, options) => fetch(PROJECT_ROUTE + url, options);
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+// Theme
+if (store.get("triage-theme")) document.documentElement.dataset.theme = store.get("triage-theme");
+$("#theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next; store.set("triage-theme", next);
+};
+
+// Tabs
+const TABS = ["overview", "inbox", "projects", "work", "changes", "reports", "prs", "issues", "alerts", "decisions", "ci"];
+function showTab(t, push = true) {
+  let sub = null;
+  if (t && t.includes(":")) { [t, sub] = t.split(":"); }
+  if (sub && t === "work") setTimeout(() => showWorkSub(sub));  // e.g. #work:issues
+  if (!PROJECT_ROUTE && t !== "inbox") t = "projects";
+  else if (!TABS.includes(t)) t = "overview";
+  TABS.forEach((x) => { $("#p-" + x).hidden = x !== t; });
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === t));
+  store.set("triage-tab", t);
+  if (t === "inbox") setTimeout(() => window.openInbox?.());
+  if (t === "projects") setTimeout(() => window.loadProjectsPanel?.());
+  if (t === "reports") setTimeout(() => loadReports());  // deferred: the renderer is defined later in this script
+  if (push && location.hash !== "#" + t) history.replaceState(null, "", "#" + t);
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+window.addEventListener("hashchange", () => showTab(location.hash.slice(1), false));
+showTab(location.hash.slice(1) || store.get("triage-tab") || "overview", false);
+
+const VERDICT = {
+  "ready": ["ok", "Ready (standing auth)", "var(--ok)"],
+  "needs-auth": ["ok", "Ready, needs your OK", "var(--ok)"],
+  "refresh": ["info", "Refresh, then re-review", "var(--info)"],
+  "review": ["warn", "Needs attention", "var(--warn)"],
+  "author": ["bad", "Waiting on author", "var(--bad)"],
+  "parked": ["", "Parked", "var(--muted)"],
+};
+const GATE_NAMES = { draft: "Draft", base: "Base", uptodate: "Branch", checks: "Checks", review: "Review", threads: "Threads" };
+
+function ago(iso) {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 90) return "just now";
+  if (s < 5400) return Math.round(s / 60) + " min ago";
+  if (s < 129600) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " d ago";
+}
+const days = (d) => d == null ? "" : d < 1 ? "<1d" : Math.floor(d) + "d";
+const statusLabel = (role) => SNAP?.workflow?.statuses?.[role] || "";
+const specialLabel = (role) => SNAP?.workflow?.labels?.[role] || "";
+const authoredByUs = (author) => [VIEWER, ICFG.bot_login].filter(Boolean).some((name) => name.toLowerCase() === author.toLowerCase());
+const fixBtns = (p) => [
+  p.draft && authoredByUs(p.author) ? `<button class="small" data-ready="${p.number}" data-head="${p.head}">Mark ready</button>` : "",
+  (SNAP.canLand || authoredByUs(p.author)) && p.gates.base.ok && !p.gates.uptodate.ok && /behind/.test(p.gates.uptodate.text)
+    ? `<button class="small" data-rebase="${p.number}" data-head="${p.head}">Rebase onto ${esc(SNAP.baseBranch)}</button>` : "",
+].filter(Boolean).join(" ");
+const landBtn = (p) => SNAP.canLand ? `<button class="small primary" data-land="${p.number}" data-head="${p.head}" data-auth="${p.verdict === "needs-auth" ? 1 : ""}">Land @${p.head.slice(0, 7)}</button>` : "";
+const ghLink = (n, url) => `<a href="${esc(url)}" target="_blank" rel="noopener">#${n}</a>`;
+const verdictPill = (p, lg) => `<span class="pill ${VERDICT[p.verdict][0]} ${lg ? "lg" : ""}">${VERDICT[p.verdict][1]}</span>`;
+const prioPill = (p, rank) => p ? `<span class="pill ${rank === 0 ? "bad" : rank === 1 ? "warn" : ""}">${esc(p)}</span>` : "";
+const setBadge = (id, n, cls) => { const b = $(id); b.textContent = n; b.className = "badge " + (cls || ""); };
+
+function nextStep(p) {
+  if (p.verdict === "ready" || p.verdict === "needs-auth") {
+    const text = p.verdict === "ready" ? "The configured gates pass. The author has standing authorization."
+      : "The configured gates pass. Confirm the current commit before merging.";
+    return { text, cmd: `gh pr merge ${p.number} --repo ${SNAP.repo} --${SNAP.rules.merge_method} --match-head-commit ${p.head}` };
+  }
+  if (p.verdict === "refresh") return { text: `Update this PR with ${SNAP.baseBranch} and recheck the new commit.`,
+    cmd: `gh pr update-branch ${p.number} --repo ${SNAP.repo} --rebase` };
+  return { text: p.blockers[0] || "Check the pull request on GitHub.",
+    cmd: `gh pr view ${p.number} --repo ${SNAP.repo} --web` };
+}
+
+function render(s) {
+  if (SNAP && SNAP.repo !== s.repo) {
+    BASE = null;
+    OPEN_JOB = null;
+    JOBS = [];
+    CANDS = [];
+    $("#draft").hidden = true;
+  }
+  SNAP = s;
+  $("#repo").innerHTML = `<a href="https://github.com/${esc(s.repo)}" target="_blank" rel="noopener">${esc(s.repo)}</a>`;
+  $("#mainsha").innerHTML = s.main.sha
+    ? `${esc(s.baseBranch)} <code>${esc(s.main.sha.slice(0, 9))}</code> · ${esc(s.main.msg.split("\n")[0].slice(0, 60))}`
+    : "No commits yet";
+  $("#ci-heading").textContent = s.baseBranch ? `Workflow runs on ${s.baseBranch}` : "Workflow runs";
+  const reportsTab = $('[data-tab="reports"]');
+  reportsTab.hidden = !s.workflow.reportsEnabled;
+  if (reportsTab.getAttribute("aria-selected") === "true") {
+    if (reportsTab.hidden) showTab("overview");
+    else loadReports();
+  }
+  updateStamp();
+
+  const prs = s.prs, iss = s.issues.rows;
+  const cnt = (k) => prs.filter((p) => p.verdict === k).length;
+  const landable = cnt("ready") + cnt("needs-auth");
+  const highestPriority = iss.filter((i) => i.priorityRank === 0).length;
+  const dec = iss.filter((i) => i.decision);
+  const ciMain = (s.ci.main || [])[0];
+  const ciBad = s.ci.error || (ciMain && ciMain.conclusion && ciMain.conclusion !== "success");
+
+  // Tab badges
+  setBadge("#b-prs", prs.length, landable ? "ok" : "");
+  setBadge("#b-issues", iss.length, highestPriority ? "bad" : "");
+  setBadge("#b-alerts", s.alerts.length, s.alerts.length ? "warn" : "ok");
+  setBadge("#b-decisions", dec.length, dec.length ? "warn" : "");
+  setBadge("#b-ci", s.ci.error ? "BLOCKED" : ciMain ? (ciMain.conclusion || ciMain.status) : "n/a", ciBad ? "bad" : "ok");
+
+  // Stats
+  const order = ["ready", "needs-auth", "refresh", "review", "author", "parked"];
+  const stack = order.map((k) => [k, cnt(k)]).filter(([, n]) => n);
+  const unownedUrgent = iss.filter((i) => [0, 1].includes(i.priorityRank) && i.statusRole === "ready-for-work" && !i.assignees.length).length;
+  $("#stats").innerHTML = [
+    `<button class="stat ${landable ? "ok" : ""}" data-go="prs"><div class="big">${landable}</div><div class="lbl">PRs landable now</div>
+      <div class="sub">${cnt("refresh")} one refresh away · ${cnt("review")} need attention</div></button>`,
+    `<button class="stat" data-go="prs"><div class="big">${prs.length}</div><div class="lbl">Open pull requests</div>
+      <div class="stack">${stack.map(([k, n]) => `<span style="width:${(n / prs.length) * 100}%;background:${VERDICT[k][2]}"></span>`).join("")}</div>
+      <div class="legend">${stack.map(([k, n]) => `<span><i style="background:${VERDICT[k][2]}"></i>${n} ${esc(VERDICT[k][1].toLowerCase())}</span>`).join("")}</div></button>`,
+    `<button class="stat ${highestPriority ? "bad" : ""}" data-go="issues"><div class="big">${iss.length}</div><div class="lbl">Open issues</div>
+      <div class="sub">${s.workflow.issuesEnabled ? `${unownedUrgent} urgent and unassigned` : "Issues disabled on GitHub"}</div></button>`,
+    `<button class="stat ${dec.length ? "warn" : ""}" data-go="decisions"><div class="big">${dec.length}</div><div class="lbl">Maintainer decisions pending</div>
+      <div class="sub">oldest open ${days(Math.max(0, ...dec.map((i) => i.createdAgeDays || 0)))}</div></button>`,
+    `<button class="stat ${s.alerts.length ? "warn" : "ok"}" data-go="alerts"><div class="big">${s.alerts.length}</div><div class="lbl">Alerts</div>
+      <div class="sub">${[...new Set(s.alerts.map((a) => a.text.replace(/#?\d+/g, "N").replace(/\d+d/, "Nd")))].length} kinds</div></button>`,
+    `<button class="stat ${ciBad ? "bad" : "ok"}" data-go="ci"><div class="big" style="font-size:30px;padding:7px 0">${esc(s.ci.error ? "BLOCKED" : ciMain ? (ciMain.conclusion || ciMain.status) : "n/a")}</div><div class="lbl">Latest workflow run</div>
+      <div class="sub">${ciMain ? ago(ciMain.createdAt) + " · " : ""}${s.ci.startupFailures || 0} runs failed to start recently</div></button>`,
+  ].join("");
+  document.querySelectorAll("[data-go]").forEach((b) => b.onclick = () => showTab(b.dataset.go));
+
+  // Top candidate
+  const top = prs[0];
+  if (!top) { $("#candidate").innerHTML = `<h2>Top candidate</h2><div class="empty">No open pull requests.</div>`; }
+  else {
+    const ns = nextStep(top);
+    $("#candidate").innerHTML = `
+      <h2>Top candidate to land <small>first in the suggested landing order</small></h2>
+      <div class="cand-head"><span class="num">${ghLink(top.number, top.url)}</span><span class="ttl">${esc(top.title)}</span>${verdictPill(top, true)}</div>
+      <div class="cand-meta">by <b>${esc(top.author)}</b>${top.maintainerAuthor ? ' <span class="pill info">maintainer</span>' : ""}
+        · ${esc(top.size)} · ${top.commits} commits · head <code>${top.head.slice(0, 9)}</code>
+        ${top.closes.length ? "· closes " + top.closes.map((n) => "#" + n).join(", ") : "· no closing issue"}
+        · status <b>${esc((top.status || "none"))}</b> for ${days(top.statusAgeDays)} · next actor: <b>${esc(top.nextActor)}</b></div>
+      <div class="cand-body">
+        <div><div class="h3">Merge gate on the exact head</div><div class="checklist">
+          ${Object.entries(top.gates).map(([k, g]) => `<div class="check ${g.ok ? "ok" : "no"}"><span class="ic">${g.ok ? "✓" : "✗"}</span><span class="nm">${esc(GATE_NAMES[k])}</span><span class="tx">${esc(g.text)}</span></div>`).join("")}
+        </div>
+        ${top.lastReview ? `<div class="small muted" style="margin-top:10px">Last maintainer review: ${esc(top.lastReview.by)} (${esc(top.lastReview.state.toLowerCase())}) on <code>${esc(top.lastReview.commit)}</code>, ${ago(top.lastReview.at)}${top.lastReview.onHead ? ", this head" : ", an older head"}.</div>` : `<div class="small muted" style="margin-top:10px">No maintainer review yet.</div>`}
+        </div>
+        <div><div class="h3">What it needs</div>
+          ${top.blockers.length ? `<ul class="blk">${top.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>` : `<div>Nothing: every gate passes.</div>`}
+          ${top.mismatch.map((m) => `<div style="margin-top:6px"><span class="pill warn">${esc(m)}</span></div>`).join("")}
+          <div class="h3" style="margin-top:14px">Next step</div><div>${esc(ns.text)}</div>
+          ${ns.cmd ? `<div class="cmd mono">${esc(ns.cmd)}</div>` : ""}
+          ${fixBtns(top) ? `<div style="margin-top:8px">${fixBtns(top)}</div>` : ""}
+        </div>
+      </div>`;
+  }
+
+  // Up next
+  $("#upnext").innerHTML = prs.length > 1 ? prs.slice(1).map((p, i) => `
+    <div class="upnext-row" style="cursor:pointer" data-go="prs"><span class="mono muted">${i + 2}.</span><span class="mono">${ghLink(p.number, p.url)}</span>
+      <span>${esc(p.title)}<div class="small muted">${esc(p.author)} · ${esc(p.blockers[0] || "no blockers")}${p.blockers.length > 1 ? ` (+${p.blockers.length - 1} more)` : ""}</div></span>
+      ${verdictPill(p)}</div>`).join("") : `<div class="empty">Nothing else in the queue.</div>`;
+  document.querySelectorAll("#upnext [data-go]").forEach((r) => r.onclick = (e) => { if (e.target.tagName !== "A") showTab("prs"); });
+
+  // PR queue
+  $("#prs").innerHTML = `<tr><th>#</th><th>Title</th><th>Author</th><th>Verdict</th><th>Gates (exact head)</th><th>What blocks it</th><th>Next actor</th></tr>` +
+    prs.map((p, idx) => `<tr>
+      <td class="mono">${idx + 1}. ${ghLink(p.number, p.url)}</td>
+      <td class="title-cell">${esc(p.title)}<div class="small muted">${esc(p.size)} · ${p.commits} commits · head <code>${p.head.slice(0, 9)}</code>${p.closes.length ? " · closes " + p.closes.map((n) => "#" + n).join(", ") : ""}${p.autoMerge ? ' · <span class="pill info">auto-merge armed</span>' : ""}</div>${p.labels.length ? `<div class="small muted">${p.labels.map(esc).join(" · ")}</div>` : ""}</td>
+      <td>${esc(p.author)}${p.maintainerAuthor ? ' <span class="pill info">maint</span>' : ""}</td>
+      <td>${verdictPill(p)}${CHG && CHG.touchedPrs.includes(p.number) ? ' <span class="pill warn" title="Changed since your baseline; see the Changes tab">changed</span>' : ""}
+        ${CANDS.includes(p.number) ? `<div style="margin-top:6px"><button class="small" data-review="${p.number}">Draft review</button></div>` : ""}
+        ${["ready", "needs-auth"].includes(p.verdict) ? `<div style="margin-top:6px">${landBtn(p)}</div>` : ""}
+        ${fixBtns(p) ? `<div style="margin-top:6px">${fixBtns(p)}</div>` : ""}</td>
+      <td><div class="gates">${Object.entries(p.gates).map(([k, g]) => `<span class="gate ${g.ok ? "ok" : "no"}">${g.ok ? "✓" : "✗"} ${esc(GATE_NAMES[k])}: ${esc(g.text)}</span>`).join("")}</div>
+        ${p.lastReview ? `<div class="small muted" style="margin-top:4px">last review: ${esc(p.lastReview.by)} ${esc(p.lastReview.state.toLowerCase())} @<code>${esc(p.lastReview.commit)}</code> ${ago(p.lastReview.at)}</div>` : ""}</td>
+      <td>${p.blockers.length ? `<ul class="blk">${p.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>` : '<span class="muted small">none</span>'}
+        ${p.mismatch.map((m) => `<div><span class="pill warn">${esc(m)}</span></div>`).join("")}</td>
+      <td class="small">${esc(p.nextActor)}<div class="muted">${esc((p.status || "no status"))} ${days(p.statusAgeDays)}</div></td>
+    </tr>`).join("");
+
+  // Alerts
+  $("#alerts").innerHTML = s.alerts.length ? s.alerts.map((a) =>
+    `<div class="row-item"><span class="pill ${a.kind === "ci" ? "bad" : "warn"}">${esc(a.kind)}</span>${a.number ? ghLink(a.number, a.url) : `<a href="${esc(a.url)}" target="_blank" rel="noopener">${a.kind === "ci" ? "actions" : "list"}</a>`}<span>${esc(a.text)}</span></div>`).join("")
+    : `<div class="empty">No alerts.</div>`;
+
+  // Decisions
+  dec.sort((a, b) => (a.priority || "P9").localeCompare(b.priority || "P9") || b.createdAgeDays - a.createdAgeDays);
+  $("#decisions").innerHTML = dec.length ? dec.map((i) =>
+    `<div class="row-item${String(i.number) === inboxIssue ? " inbox-target" : ""}">${ghLink(i.number, i.url)}${prioPill(i.priority, i.priorityRank)}<span>${esc(i.title)}</span>
+     <span class="small muted">open ${days(i.createdAgeDays)} · quiet ${days(i.updatedAgeDays)} · ${i.comments} comments${i.decision ? " · decision" : ""}${i.statusRole === "needs-scope-review" ? " · scope review" : ""}${i.assignees.length ? " · " + esc(i.assignees.join(", ")) : ""}</span></div>`).join("")
+    : `<div class="empty">No pending decisions.</div>`;
+
+  if (inboxIssue && !inboxIssueShown && !$("#p-decisions").hidden) {
+    const target = $("#decisions .inbox-target");
+    if (target) {
+      inboxIssueShown = true;
+      target.scrollIntoView({ block: "center" });
+    }
+  }
+  // Issues
+  const fill = (sel, values) => {
+    const el = $(sel), cur = el.value, first = el.options[0].outerHTML;
+    el.innerHTML = first + values.map((x) => `<option ${x === cur ? "selected" : ""}>${esc(x)}</option>`).join("");
+  };
+  fill("#f-prio", Object.keys(s.issues.byPriority));
+  fill("#f-status", Object.keys(s.issues.byStatus));
+  fill("#f-area", Object.keys(s.issues.byArea));
+  renderIssues();
+  const bars = (title, obj) => {
+    const max = Math.max(...Object.values(obj), 1);
+    return `<section><h2>${esc(title)}</h2><div class="pad bars">` +
+      Object.entries(obj).map(([k, n]) => `<span>${esc(k)}</span><div class="bar" style="width:${(n / max) * 100}%"></div><span class="mono">${n}</span>`).join("") + "</div></section>";
+  };
+  $("#mix").innerHTML = bars("By priority", s.issues.byPriority) + bars("By status", s.issues.byStatus) + bars("By area", s.issues.byArea);
+
+  // CI + rules
+  $("#ci").innerHTML = s.ci.error ? `<div class="pill bad">BLOCKED: ${esc(s.ci.error)}</div>` :
+    `<table>${(s.ci.main || []).map((x) => `<tr><td>${esc(x.workflowName)}</td><td><span class="pill ${x.conclusion === "success" ? "ok" : x.conclusion ? "bad" : "info"}">${esc(x.conclusion || x.status)}</span></td><td class="mono">${esc(x.headSha.slice(0, 9))}</td><td class="small muted">${esc(x.event)}</td><td class="small"><a href="${esc(x.url)}" target="_blank" rel="noopener">${ago(x.createdAt)}</a></td></tr>`).join("")}</table>
+     <div class="small muted" style="margin-top:8px">Last 30 runs on all branches: ${s.ci.recentFailures} failed or cancelled, ${s.ci.startupFailures} failed to start.</div>`;
+  const r = s.rules;
+  $("#rules").innerHTML = `<div>${r.required_checks.length} required checks · ${r.approvals} required approvals ·
+     ${r.strict ? `must include current ${esc(s.baseBranch)}` : "up-to-date not required"} · ${r.thread_resolution ? "threads must be resolved" : "thread resolution not required"} ·
+     merge method: <b>${esc(r.merge_method || "unavailable")}</b></div>
+     <ul class="blk small" style="margin-top:8px">${r.required_checks.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+     ${r.maintainer_review ? `<div class="small muted">Requires a review of the current commit by: ${s.maintainers.map(esc).join(", ")}</div>` : ""}
+     ${s.workflow.standingAuthorization.length ? `<div class="small muted">Standing authorization: ${s.workflow.standingAuthorization.map(esc).join(", ")}</div>` : ""}
+     ${r.warnings.map((warning) => `<div class="small muted">${esc(warning)}</div>`).join("")}`;
+}
+
+function renderIssues() {
+  if (!SNAP) return;
+  const pr = $("#f-prio").value, st = $("#f-status").value, ar = $("#f-area").value,
+    fl = $("#f-flag").checked, tx = $("#f-text").value.trim().toLowerCase().replace(/^#/, "");
+  const rows = SNAP.issues.rows.filter((i) =>
+    (!pr || (i.priority || "(none)") === pr) && (!st || (i.status || "(none)") === st) &&
+    (!ar || (i.areas.length ? i.areas : ["(none)"]).includes(ar)) && (!fl || i.flags.length) &&
+    (!tx || i.title.toLowerCase().includes(tx) || String(i.number) === tx))
+    .sort((a, b) => (a.priorityRank ?? Infinity) - (b.priorityRank ?? Infinity) || a.number - b.number);
+  $("#issuecount").textContent = `${rows.length} of ${SNAP.issues.rows.length}`;
+  $("#issues").innerHTML = `<tr><th>#</th><th>Priority</th><th>Title</th><th>Status</th><th>Assignees</th><th>Quiet</th><th>Flags</th></tr>` +
+    rows.map((i) => `<tr>
+      <td class="mono">${ghLink(i.number, i.url)}</td><td>${prioPill(i.priority, i.priorityRank)}</td>
+      <td class="title-cell">${esc(i.title)}<div class="small muted">${i.labels.map(esc).join(" · ")}${i.tracker ? " · tracker" : ""}${i.prs.length ? " · PR " + i.prs.map((n) => "#" + n).join(", ") : ""}${i.comments ? " · " + i.comments + " comments" : ""}</div></td>
+      <td class="small">${esc((i.status || "none"))}</td>
+      <td class="small">${esc(i.assignees.join(", ") || "–")}</td>
+      <td class="small mono">${days(i.updatedAgeDays)}</td>
+      <td>${i.flags.map((f) => `<span class="pill warn">${esc(f)}</span>`).join(" ")}</td>
+    </tr>`).join("");
+}
+["#f-prio", "#f-status", "#f-area", "#f-flag"].forEach((s) => $(s).addEventListener("change", renderIssues));
+$("#f-text").addEventListener("input", renderIssues);
+
+// ---------------------------------------------------------------- changes
+let CHG = null, SNAPS = [], BASE = null;
+const SEV_WORD = ["important", "notable", "minor"];
+
+function chooseBase(latestFile) {
+  const older = SNAPS.filter((s) => s.file !== latestFile);
+  const seen = store.get(`triage-seen-file:${SNAP?.repo}:${SNAP?.baseBranch}`);
+  if (BASE && (BASE === latestFile || older.some((s) => s.file === BASE))) return BASE;
+  if (seen && (seen === latestFile || older.some((s) => s.file === seen))) return seen;
+  if (!older.length) return latestFile;
+  const cutoff = new Date(SNAP.generatedAt) - 12 * 3600e3;          // default: about half a day back
+  const cand = older.filter((s) => new Date(s.generatedAt) <= cutoff);
+  return (cand.length ? cand[cand.length - 1] : older[0]).file;
+}
+
+async function loadChanges() {
+  if (!SNAP || !SNAP.file) { CHG = null; renderChanges("This snapshot predates change tracking; press Refresh."); return; }
+  try {
+    SNAPS = await (await projectFetch("/api/snapshots", { cache: "no-store" })).json();
+    const base = chooseBase(SNAP.file);
+    if (base === SNAP.file) {
+      CHG = { base: { file: base, generatedAt: SNAP.generatedAt }, changes: [], touchedPrs: [], touchedIssues: [] };
+    } else {
+      const r = await projectFetch("/api/changes?base=" + encodeURIComponent(base), { cache: "no-store" });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error || r.statusText);
+      CHG = body;
+    }
+    renderChanges();
+    render(SNAP, true);  // re-render PR rows with "changed" markers
+  } catch (e) { CHG = null; renderChanges("Could not compute changes: " + e.message); }
+}
+
+function groupChanges(list) {
+  const groups = new Map();
+  for (const c of list) {
+    const key = c.kind + ":" + (c.number ?? c.text);
+    if (!groups.has(key)) groups.set(key, { kind: c.kind, number: c.number, url: c.url, title: c.title, severity: c.severity, items: [] });
+    const g = groups.get(key); g.items.push(c); g.severity = Math.min(g.severity, c.severity);
+  }
+  return [...groups.values()].sort((a, b) => a.severity - b.severity || (a.number ?? 0) - (b.number ?? 0));
+}
+
+function groupHtml(g, maxQuotes = 3) {
+  const ref = g.number ? ghLink(g.number, g.url) : g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener">${esc(g.kind)}</a>` : `<span class="muted">${esc(g.kind)}</span>`;
+  const chips = g.items.filter((c) => !c.quote);
+  const quotes = g.items.filter((c) => c.quote);
+  const chipHtml = chips.map((c) => c.link
+    ? `<a class="chip" href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.text)}</a>`
+    : `<span class="s${c.severity}">${esc(c.text)}</span>`).join("");
+  const quoteHtml = quotes.slice(-maxQuotes).map((c) => `<div class="quote"><span class="who">${esc(c.quote.by)}</span>
+      <span class="when">· ${ago(c.quote.at)}</span>: ${esc(c.quote.text.length > 280 ? c.quote.text.slice(0, 280) + "…" : c.quote.text)}
+      <a href="${esc(c.quote.url)}" target="_blank" rel="noopener">open</a></div>`).join("")
+    + (quotes.length > maxQuotes ? `<div class="small muted" style="margin-top:4px">+${quotes.length - maxQuotes} earlier new comment(s)</div>` : "");
+  return `<div class="chg-group"><span class="dot s${g.severity}" title="${SEV_WORD[g.severity]}"></span><span class="mono">${ref}</span>
+    <span>${esc(g.title || g.items[0].text)}
+      ${g.title && chipHtml ? `<div class="chg-list">${chipHtml}</div>` : ""}${g.title ? quoteHtml : ""}</span></div>`;
+}
+
+let CHG_FILTER = "all";
+function sectionsHtml(groups, perSection, maxQuotes) {
+  const secs = [["pr", "Pull requests"], ["issue", "Issues"], ["repo", "Repository"]];
+  return secs.map(([k, name]) => {
+    const gs = groups.filter((g) => (k === "repo" ? !["pr", "issue"].includes(g.kind) : g.kind === k));
+    if (!gs.length) return "";
+    const shown = perSection ? gs.slice(0, perSection) : gs;
+    return `<div class="chg-sec">${name} · ${gs.length}</div>` + shown.map((g) => groupHtml(g, maxQuotes)).join("")
+      + (gs.length > shown.length ? `<div class="empty"><a href="#changes">${gs.length - shown.length} more ${name.toLowerCase()} changed →</a></div>` : "");
+  }).join("");
+}
+
+function renderChanges(errMsg) {
+  const since = CHG ? `since ${new Date(CHG.base.generatedAt).toLocaleString()} (${ago(CHG.base.generatedAt)})` : "";
+  document.querySelectorAll(".chg-since").forEach((e) => e.textContent = since);
+  const sel = $("#chg-base"), seen = store.get(`triage-seen-file:${SNAP?.repo}:${SNAP?.baseBranch}`);
+  sel.innerHTML = SNAPS.filter((s) => !SNAP || s.file !== SNAP.file).slice().reverse().map((s) =>
+    `<option value="${esc(s.file)}" ${CHG && CHG.base.file === s.file ? "selected" : ""}>${esc(new Date(s.generatedAt).toLocaleString())} · ${ago(s.generatedAt)}${s.file === seen ? " · marked seen" : ""}</option>`).join("")
+    || `<option>no older snapshots yet</option>`;
+  if (CHG && SNAP && CHG.base.file === SNAP.file) sel.insertAdjacentHTML("afterbegin", `<option selected>caught up (marked seen)</option>`);
+
+  if (errMsg || !CHG) {
+    const m = `<div class="empty">${esc(errMsg || "No change data.")}</div>`;
+    $("#chg-summary").innerHTML = m; $("#chg-all").innerHTML = m; setBadge("#b-changes", "–"); return;
+  }
+  const groups = groupChanges(CHG.changes);
+  const hi = groups.filter((g) => g.severity === 0).length;
+  setBadge("#b-changes", groups.length, hi ? "bad" : groups.length ? "warn" : "ok");
+  if (!groups.length) {
+    const m = `<div class="caught">✓ Nothing changed ${esc(since)}.</div>`;
+    $("#chg-summary").innerHTML = m; $("#chg-all").innerHTML = m; return;
+  }
+  const counts = { all: groups.length, pr: groups.filter((g) => g.kind === "pr").length, issue: groups.filter((g) => g.kind === "issue").length };
+  document.querySelectorAll("#chg-filter button").forEach((b) => {
+    b.textContent = { all: "All", pr: "PRs", issue: "Issues" }[b.dataset.f] + ` (${counts[b.dataset.f]})`;
+    b.setAttribute("aria-pressed", b.dataset.f === CHG_FILTER);
+  });
+  $("#chg-summary").innerHTML = sectionsHtml(groups, 4, 1);
+  const filtered = CHG_FILTER === "all" ? groups : groups.filter((g) => g.kind === CHG_FILTER);
+  $("#chg-all").innerHTML = filtered.length ? sectionsHtml(filtered, 0, 5) : `<div class="caught">✓ No ${CHG_FILTER === "pr" ? "PR" : "issue"} changes ${esc(since)}.</div>`;
+}
+document.querySelectorAll("#chg-filter button").forEach((b) => b.onclick = () => { CHG_FILTER = b.dataset.f; renderChanges(); });
+
+$("#chg-base").addEventListener("change", (e) => { BASE = e.target.value; loadChanges(); });
+document.querySelectorAll(".mark-seen").forEach((b) => b.onclick = () => {
+  if (!SNAP || !SNAP.file) return;
+  store.set(`triage-seen-file:${SNAP.repo}:${SNAP.baseBranch}`, SNAP.file); BASE = SNAP.file; loadChanges();
+});
+
+// ------------------------------------------------------------------- work
+const draftLink = pageParams.get("draft");
+let JOBS = [], CANDS = [], CFG = {}, ICFG = {}, VIEWER = "",
+    OPEN_JOB = /^[a-f0-9]{12}$/.test(draftLink || "") ? draftLink : null, POLL = null;
+const ACTIVE = ["queued", "preparing", "running", "gating"];
+const JOB_PILL = { queued: ["", "queued"], preparing: ["info", "preparing"], running: ["info", "working"], gating: ["info", "running gate"],
+  done: ["ok", "draft ready"], posted: ["ok", "posted"], failed: ["bad", "failed"],
+  cancelled: ["", "cancelled"], interrupted: ["warn", "interrupted"], stopped: ["warn", "stopped: blocked"] };
+const api = async (path, body) => {
+  const r = await projectFetch(path, { method: "POST", headers: { "X-Triage": "1", "X-Triage-Repo": SNAP?.repo || "", "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+};
+const dur = (a, b) => { if (!a) return ""; const s = ((b ? new Date(b) : Date.now()) - new Date(a)) / 1000; return s < 90 ? Math.round(s) + "s" : Math.round(s / 60) + " min"; };
+
+async function loadJobs() {
+  try {
+    const query = OPEN_JOB ? "?include=" + encodeURIComponent(OPEN_JOB) : "";
+    const r = await (await projectFetch("/api/jobs" + query, { cache: "no-store" })).json();
+    if (SNAP && r.repo !== SNAP.repo) await load();
+    JOBS = r.jobs; CANDS = r.candidates; CFG = r.config; ICFG = r.implConfig || {}; VIEWER = r.viewer || "";
+    // The page loads its code once; when the dashboard is updated, reload so no stale buttons stay on screen.
+    if (window.UI_VERSION === undefined) window.UI_VERSION = r.uiVersion;
+    else if (r.uiVersion && r.uiVersion !== window.UI_VERSION) {
+      const editing = !$("#draft").hidden && $("#draft").querySelector("textarea:not([readonly])");
+      if (!editing) { location.reload(); return; }
+      showErr("The dashboard was updated. Save or copy your draft, then reload the page.");
+    }
+    renderWork();
+    // The server refreshes after its own GitHub writes and every few minutes; pick up the new snapshot.
+    if (r.snapshotAt && r.snapshotAt !== SNAP?.generatedAt) { await load(); }
+    else if (SNAP) render(SNAP);  // refresh "Draft review" buttons in the queue
+  } catch (e) { $("#runs").innerHTML = `<tr><td class="empty">Could not load jobs: ${esc(e.message)}</td></tr>`; }
+  const active = JOBS.some((j) => ACTIVE.includes(j.status));
+  clearTimeout(POLL);
+  POLL = setTimeout(loadJobs, active ? 4000 : 30000);
+}
+
+function latestJobFor(n, head) { return JOBS.find((j) => j.pr === n && j.head === head); }
+
+const TASK_WORD = { review: "review", triage: "triage", scope: "scope", design: "design", implement: "implement" };
+const TASK_BTN = { triage: "Draft triage", scope: "Draft scope", design: "Draft design", approve: "Approve design", land: "Land", implement: "Implement" };
+let WORK_SUB = store.get("triage-work-sub") || "prs";
+let STAGE = store.get("triage-stage") || "ready";
+
+function showWorkSub(s) {
+  WORK_SUB = s; store.set("triage-work-sub", s);
+  ["prs", "issues", "runs"].forEach((x) => { $("#w-" + x).hidden = x !== s; });
+  document.querySelectorAll("#worknav button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.w === s));
+}
+document.querySelectorAll("#worknav button").forEach((b) => b.onclick = () => showWorkSub(b.dataset.w));
+showWorkSub(WORK_SUB);
+
+const jobPill = (j) => `<span class="pill ${JOB_PILL[j.status][0]}">${ACTIVE.includes(j.status) && j.status !== "queued" ? '<span class="spin"></span>' : ""}${JOB_PILL[j.status][1]}</span>`;
+const kindPill = (k) => k ? `<span class="pill">${esc(k)}</span>` : "";
+function latestIssueJob(n, type) { return JOBS.find((j) => j.target === "issue" && j.pr === n && (!type || j.type === type)); }
+
+function renderWork() {
+  const active = JOBS.filter((j) => ACTIVE.includes(j.status)).length;
+  const drafts = JOBS.filter((j) => j.status === "done").length;
+  setBadge("#b-work", active ? `${active} running` : drafts ? `${drafts} draft${drafts > 1 ? "s" : ""}` : CANDS.length,
+    active ? "warn" : drafts ? "ok" : CANDS.length ? "warn" : "");
+  const stages = SNAP ? SNAP.issues.stages : [];
+  const workable = stages.filter((s) => s.task).reduce((a, s) => a + s.count, 0);
+  document.querySelector('#worknav [data-w="prs"]').textContent = `PR reviews (${CANDS.length})`;
+  document.querySelector('#worknav [data-w="issues"]').textContent = `Issue pipeline (${workable})`;
+  document.querySelector('#worknav [data-w="runs"]').textContent = `Runs (${JOBS.length})` + (drafts ? ` · ${drafts} draft${drafts > 1 ? "s" : ""}` : "");
+
+  // PR reviews
+  const prs = SNAP ? SNAP.prs : [];
+  const cands = prs.filter((p) => CANDS.includes(p.number));
+  const landable = prs.filter((p) => ["ready", "needs-auth"].includes(p.verdict));
+  $("#landable").innerHTML = landable.length ? landable.map((p, i) => `<div class="cand"><span class="ord">${i + 1}.</span>
+      <span class="mono">${ghLink(p.number, p.url)}</span>
+      <span>${esc(p.title)}<div class="small muted">${esc(p.author)} · head <code>${p.head.slice(0, 9)}</code>${p.closes.length ? " · closes " + p.closes.map((n) => "#" + n).join(", ") : ""}</div></span>
+      <span>${verdictPill(p)} ${landBtn(p)}</span></div>`).join("")
+    : `<div class="caught">Nothing passes every gate right now.</div>`;
+  $("#rv-all").textContent = `Review all waiting (${cands.length})`;
+  $("#rv-all").disabled = !cands.length;
+  $("#cands").innerHTML = cands.length ? cands.map((p) => {
+    const j = latestJobFor(p.number, p.head);
+    return `<label class="cand"><input type="checkbox" value="${p.number}" ${j && ACTIVE.includes(j.status) ? "disabled" : ""}>
+      <span class="mono">${ghLink(p.number, p.url)}</span>
+      <span>${esc(p.title)}<div class="small muted">${esc(p.author)} · head <code>${p.head.slice(0, 9)}</code> · ${esc(p.gates.review.text)} · checks ${esc(p.gates.checks.text)} · ${esc(p.gates.uptodate.text)}</div></span>
+      <span>${j ? jobPill(j) : ""}</span></label>`;
+  }).join("") : `<div class="caught">✓ No PR is waiting on a review of its current head.</div>`;
+
+  renderPipeline();
+
+  // Runs
+  $("#runs").innerHTML = JOBS.length ? `<tr><th>Item</th><th>Task</th><th>At</th><th>Status</th><th>Started</th><th>Took</th><th>Cost</th><th>Result</th><th></th></tr>` +
+    JOBS.map((j) => `<tr>
+      <td><span class="mono">${ghLink(j.pr, j.url)}</span><div class="small muted">${esc(j.title.slice(0, 48))}</div></td>
+      <td><span class="pill">${esc(TASK_WORD[j.type || "review"])}</span></td>
+      <td class="mono small">${j.head ? j.head.slice(0, 9) : ""}</td>
+      <td>${jobPill(j)}</td>
+      <td class="small">${j.started ? ago(j.started) : ago(j.created)}</td>
+      <td class="small mono">${dur(j.started, j.finished)}</td>
+      <td class="small mono">${j.costUsd != null ? "$" + j.costUsd.toFixed(2) : ""}</td>
+      <td class="small">${j.decision ? `<span class="pill ${j.decision === "COMMENT" ? "info" : "bad"}">${j.decision === "COMMENT" ? "comment" : "request changes"}</span> ` : ""}${esc(j.summary || j.error || "")}
+        ${j.posted ? `<div><a href="${esc(j.posted.url)}" target="_blank" rel="noopener">posted ${ago(j.posted.at)}</a> · ${esc(j.posted.actions.join(", "))}</div>` : ""}</td>
+      <td style="white-space:nowrap">${["done", "posted", "stopped"].includes(j.status) ? `<button class="small" data-open="${j.id}">${j.status === "done" ? "Open draft" : j.status === "stopped" ? "Read why" : "View"}</button>` : ""}
+        ${ACTIVE.includes(j.status) ? `<button class="small" data-cancel="${j.id}">Cancel</button>` : `<button class="small" data-dismiss="${j.id}" title="Hide from this list">✕</button>`}</td>
+    </tr>`).join("") : `<tr><td class="empty">No runs yet.</td></tr>`;
+  if (OPEN_JOB) renderDraft(JOBS.find((j) => j.id === OPEN_JOB));
+}
+
+function renderPipeline() {
+  if (!SNAP) return;
+  const rows = SNAP.issues.rows, stages = SNAP.issues.stages;
+  // Stage chips in workflow order.
+  const shown = stages;
+  if (!shown.some((s) => s.key === STAGE)) STAGE = (shown.find((s) => s.count) || shown[0])?.key;
+  $("#stage-chips").innerHTML = shown.map((s, i) =>
+    `${["approved", "tracker"].includes(s.key) ? '<span class="arrow">│</span>' : i ? '<span class="arrow">›</span>' : ""}<button data-stage="${s.key}" class="${s.count ? "" : "zero"}" aria-pressed="${s.key === STAGE}">${esc(s.label)} ${s.count}</button>`).join("");
+
+  const st = stages.find((s) => s.key === STAGE);
+  const items = rows.filter((r) => r.stage === STAGE);
+  const task = st && st.task;
+  const mine = (r) => !r.assignees.length || r.assignees.some(authoredByUs);
+  const eligible = (r) => task && !["approve", "land"].includes(task)
+    && !(["design", "implement"].includes(task) && !mine(r))
+    && !(task === "implement" && (!r.designApproved || r.prs.length));
+  const notes = {
+    triage: "Draft a classification and suggest changes using existing GitHub labels.",
+    scope: "Draft a recommendation for the maintainer's scope decision.",
+    "design-needed": "Draft a design proposal for the issue.",
+    ready: task === "design" ? "Draft a design before starting implementation." : "Ready for a contributor.",
+    "design-posted": "Review the current proposal and its discussion.",
+    "design-changes": "Draft a revision to the proposal.",
+    approved: "Read the approved design to start implementation.",
+    implementing: "The issue is in progress.",
+    "in-review": "The linked PR or issue is waiting for review.",
+    "ready-to-merge": "A linked PR passes the configured gates.",
+    "ready-for-human": "This issue is reserved for human implementation.",
+    blocked: "Waiting on another item.",
+    excluded: "These issues match the configured exclusion pattern.",
+    info: "Waiting for more information.",
+  };
+  $("#ip-note").textContent = notes[STAGE] || "";
+  const sel = items.filter(eligible);
+  $("#ip-tools").innerHTML = task && !["approve", "land", "implement"].includes(task) && sel.length
+    ? `<button id="ip-selected">${TASK_BTN[task]}: selected</button><button id="ip-next">${TASK_BTN[task]}: next 3</button><button class="primary" id="ip-all">${TASK_BTN[task]}: all ${sel.length}</button>` : "";
+  $("#ip-list").innerHTML = items.length ? items.map((r, i) => {
+    const j = ["approve", "land"].includes(task) ? null : latestIssueJob(r.number, task);
+    const ok = eligible(r);
+    const action = task === "land"
+      ? SNAP.prs.filter((p) => r.prs.includes(p.number) && ["ready", "needs-auth"].includes(p.verdict)).map((p) => `${ghLink(p.number, p.url)} ${landBtn(p)}`).join(" ")
+      : task === "approve" || task === "implement"
+      ? `<button class="small ${task === "approve" || ok ? "primary" : ""}" data-design="${r.number}">Review design</button>`
+      : ok && !(j && ACTIVE.includes(j.status)) ? `<button class="small" data-itask="${task}" data-num="${r.number}">${TASK_BTN[task]}</button>` : "";
+    return `<label class="ip-row">${ok && task !== "implement" ? `<input type="checkbox" value="${r.number}" ${j && ACTIVE.includes(j.status) ? "disabled" : ""}>` : "<span></span>"}
+      <span class="ord">${i + 1}.</span><span class="mono">${ghLink(r.number, r.url)}</span>
+      <span>${esc(r.title)}<div class="small muted">${kindPill(r.kind)} ${prioPill(r.priority, r.priorityRank)} ${r.areas.map(esc).join(" ")} ·
+        ${r.assignees.length ? "assigned " + esc(r.assignees.join(", ")) : "unassigned"} · quiet ${days(r.updatedAgeDays)}${r.prs.length ? " · PR " + r.prs.map((n) => "#" + n).join(", ") : ""}
+        ${r.flags.map((f) => `<span class="pill warn">${esc(f)}</span>`).join(" ")}</div></span>
+      <span style="white-space:nowrap">${j ? jobPill(j) + " " : ""}${action}</span></label>`;
+  }).join("") : `<div class="empty">Nothing in this stage.</div>`;
+
+  const run = async (nums) => startTask(task, nums);
+  if ($("#ip-selected")) {
+    $("#ip-selected").onclick = () => { const n = [...document.querySelectorAll("#ip-list input:checked")].map((c) => +c.value); n.length ? run(n) : showErr("Select at least one issue first."); };
+    $("#ip-next").onclick = () => run(sel.filter((r) => !latestIssueJob(r.number, task)).slice(0, 3).map((r) => r.number));
+    $("#ip-all").onclick = () => { if (confirm(`Draft ${task} for all ${sel.length} issue(s) in "${st.label}"? They run one at a time, ${CFG.agent === "claude" ? `up to $${CFG.max_budget_usd} each` : "using Codex"}. Nothing is posted.`)) run(sel.map((r) => r.number)); };
+  }
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("#stage-chips button");
+  if (b) { STAGE = b.dataset.stage; store.set("triage-stage", STAGE); renderPipeline(); }
+});
+
+async function startTask(task, nums) {
+  if (!nums.length) return showErr("Nothing eligible to run.");
+  try {
+    const r = await api("/api/jobs", { task, issues: nums });
+    const sk = r.skipped.map((s) => `#${s.pr}: ${s.reason}`).join("; ");
+    showErr(sk ? `Started ${r.created.length}. Skipped ${sk}` : "");
+    await loadJobs();
+  } catch (e) { showErr(`Could not start ${task}: ${e.message}`); }
+}
+
+function renderDraft(j) {
+  const el = $("#draft");
+  if (!j) { el.hidden = true; OPEN_JOB = null; return; }
+  if (el.dataset.job === j.id && el.dataset.status === j.status && !el.hidden) return;  // keep edits
+  el.dataset.job = j.id; el.dataset.status = j.status; el.hidden = false;
+  if (j.type === "implement") return renderImpl(j, el);
+  const posted = j.status === "posted", issue = j.target === "issue", type = j.type || "review";
+  const title = { review: "review", triage: "triage", scope: "scope recommendation", design: "design proposal" }[type];
+  const postedNote = posted ? `<div class="note" style="margin-top:8px">Posted ${ago(j.posted.at)} by ${esc(j.posted.by)}: ${esc(j.posted.actions.join(", "))}. <a href="${esc(j.posted.url)}" target="_blank" rel="noopener">Open on GitHub</a></div>` : "";
+  const waiting = statusLabel("waiting-on-author");
+  const designReview = statusLabel("design-review");
+  const decisionLabel = specialLabel("maintainer_decision");
+  const claimLabel = specialLabel("claimed");
+  let controls = "";
+  if (!posted && !issue) controls = `
+      <label>Decision <select id="dr-decision">
+        <option value="COMMENT" ${j.decision === "COMMENT" ? "selected" : ""}>Comment (no blocking findings)</option>
+        <option value="REQUEST_CHANGES" ${j.decision === "REQUEST_CHANGES" ? "selected" : ""}>Request changes (blocking findings)</option></select></label>
+      ${waiting ? `<label class="small"><input type="checkbox" id="dr-label" checked> on Request changes, set <code>${esc(waiting)}</code></label>` : ""}`;
+  if (!posted && type === "triage") controls = `
+      <label class="small">Add labels <input id="dr-add" size="34" value="${esc((j.labelsAdd || []).join(", "))}"></label>
+      <label class="small">Remove labels <input id="dr-rem" size="24" value="${esc((j.labelsRemove || []).join(", "))}"></label>`;
+  if (!posted && type === "scope") controls = `
+      ${j.recommendStatus ? `<label class="small"><input type="checkbox" id="dr-apply"> set <code>${esc(j.recommendStatus)}</code></label>` : ""}
+      ${decisionLabel ? `<label class="small"><input type="checkbox" id="dr-decided"> decision made (remove <code>${esc(decisionLabel)}</code>)</label>` : ""}`;
+  if (!posted && type === "design") controls = `
+      ${designReview ? `<span class="small">sets <code>${esc(designReview)}</code></span>` : ""}
+      <label class="small"><input type="checkbox" id="dr-claim" checked> assign me${claimLabel ? ` and add <code>${esc(claimLabel)}</code>` : ""}</label>`;
+  const note = issue
+    ? `Posting re-checks that #${j.pr} is open and its status has not changed since the draft, then comments under your account${type === "triage" ? " and applies the label changes you confirm" : ""}.`
+    : `Posting re-checks that #${j.pr} is still at <code>${j.head.slice(0, 9)}</code>, then submits under your GitHub account. The dashboard posts comments and change requests.`;
+  el.innerHTML = `<h2>${posted ? "Posted" : "Draft"} ${title} ${ghLink(j.pr, j.url)} <small>${j.head ? "at <code>" + j.head.slice(0, 9) + "</code> · " : ""}${esc(j.summary || "")}</small>
+      <span class="toolbar"><button class="small" id="dr-close">Close</button></span></h2>
+    <div class="pad">
+      ${mdEditor(j.body, posted)}
+      ${posted ? postedNote : `<div class="draft-bar">${controls}<span style="flex:1"></span>
+        <button id="dr-copy">Copy</button><button class="primary" id="dr-post">Post to GitHub</button></div>
+      <div class="note" style="margin-top:8px">${note}</div>`}
+    </div>`;
+  $("#dr-close").onclick = () => { OPEN_JOB = null; el.hidden = true; };
+  wireEditor(el);
+  if (posted) return;
+  $("#dr-copy").onclick = () => navigator.clipboard.writeText($("#dr-body").value);
+  $("#dr-post").onclick = async () => {
+    const body = $("#dr-body").value;
+    let payload, what;
+    const list = (id) => $(id).value.split(",").map((s) => s.trim()).filter(Boolean);
+    if (!issue) {
+      const decision = $("#dr-decision").value, setLabel = !!$("#dr-label")?.checked;
+      payload = { decision, body, setLabel };
+      what = (decision === "COMMENT" ? "a Comment review" : "a Request changes review" + (setLabel ? " and set " + waiting : "")) + ` on PR #${j.pr} (head ${j.head.slice(0, 9)})`;
+    } else {
+      const opts = type === "triage" ? { labelsAdd: list("#dr-add"), labelsRemove: list("#dr-rem") }
+        : type === "scope" ? { applyStatus: !!$("#dr-apply")?.checked, decisionMade: !!$("#dr-decided")?.checked }
+        : { claim: $("#dr-claim").checked };
+      payload = { body, opts };
+      const parts = [body.trim() ? "a comment" : null,
+        opts.labelsAdd && opts.labelsAdd.length ? "add " + opts.labelsAdd.join(", ") : null,
+        opts.labelsRemove && opts.labelsRemove.length ? "remove " + opts.labelsRemove.join(", ") : null,
+        opts.applyStatus ? "status → " + j.recommendStatus : null, opts.decisionMade ? "remove " + decisionLabel : null,
+        type === "design" && body.trim() && designReview ? "status → " + designReview : null,
+        opts.claim ? "assign you" + (claimLabel ? " and add " + claimLabel : "") : null].filter(Boolean);
+      what = `${parts.join("; ")} on issue #${j.pr}`;
+    }
+    if (!confirm(`Post ${what} under your GitHub account?`)) return;
+    const b = $("#dr-post"); b.disabled = true; b.textContent = "Posting…";
+    try { await api(`/api/jobs/${j.id}/post`, payload); showErr(""); await loadJobs(); }
+    catch (e) { showErr("Post failed: " + e.message); b.disabled = false; b.textContent = "Post to GitHub"; }
+  };
+}
+
+// GitHub-flavoured Markdown → sanitized HTML. Issue and comment text comes from anyone on GitHub,
+// so everything goes through DOMPurify before it reaches the page.
+if (window.DOMPurify) DOMPurify.addHook("afterSanitizeAttributes", (n) => {
+  if (n.tagName === "A" && n.getAttribute("href")) { n.setAttribute("target", "_blank"); n.setAttribute("rel", "noopener noreferrer"); }
+});
+const PURIFY = { FORBID_TAGS: ["style", "form", "button", "textarea", "select"], FORBID_ATTR: ["style"] };
+const mdRepo = () => SNAP?.repo;
+
+// Link #123 and @login the way GitHub does, skipping text already inside links and code.
+function linkRefs(root) {
+  const re = /(^|[^\w\/&#@.-])(?:#(\d+)\b|@([A-Za-z\d](?:[A-Za-z\d]|-(?=[A-Za-z\d])){0,38})(?![\w-]))/g;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (t) => t.parentElement && t.parentElement.closest("a, code, pre") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const t of nodes) {
+    const s = t.nodeValue; re.lastIndex = 0; if (!re.test(s)) continue; re.lastIndex = 0;
+    const frag = document.createDocumentFragment(); let last = 0, m;
+    while ((m = re.exec(s))) {
+      if (m[2] && !mdRepo()) continue;
+      const start = m.index + m[1].length;
+      frag.append(s.slice(last, start));
+      const a = document.createElement("a"); a.className = "ref"; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.href = m[2] ? `https://github.com/${mdRepo()}/issues/${m[2]}` : `https://github.com/${m[3]}`;
+      a.textContent = m[2] ? "#" + m[2] : "@" + m[3];
+      frag.append(a); last = re.lastIndex;
+    }
+    frag.append(s.slice(last)); t.replaceWith(frag);
+  }
+}
+
+function md(src) {
+  if (!window.marked || !window.DOMPurify) return mdBasic(src);
+  try {
+    const tpl = document.createElement("template");  // inert: nothing loads or runs while we post-process
+    tpl.innerHTML = DOMPurify.sanitize(marked.parse(src || "", { gfm: true, breaks: true }), PURIFY);
+    linkRefs(tpl.content);
+    return `<div class="md">${tpl.innerHTML}</div>`;
+  } catch (e) { console.error("markdown render failed", e); return mdBasic(src); }
+}
+const ghHtml = (html) => window.DOMPurify ? `<div class="md">${DOMPurify.sanitize(html, PURIFY)}</div>` : `<pre class="small">${esc(html)}</pre>`;
+
+// A Markdown box for drafts: Write (or Source when read-only), Preview (local), GitHub preview (rendered by GitHub, nothing posted).
+function mdEditor(body, readonly) {
+  return `<div class="md-tabs">
+      <button type="button" class="small" data-mdtab="write" aria-pressed="${!readonly}">${readonly ? "Source" : "Write"}</button>
+      <button type="button" class="small" data-mdtab="preview" aria-pressed="${!!readonly}">Preview</button>
+      <button type="button" class="small" data-mdtab="github" aria-pressed="false" title="Ask GitHub to render it exactly as it will appear there. Nothing is posted.">GitHub preview</button>
+      <span class="note md-tabnote"></span></div>
+    <textarea id="dr-body" ${readonly ? "readonly hidden" : ""}>${esc(body || "")}</textarea>
+    <div class="md-preview md-box" ${readonly ? "" : "hidden"}>${readonly ? md(body) : ""}</div>`;
+}
+function wireEditor(el) {
+  const ta = el.querySelector("#dr-body"), pv = el.querySelector(".md-preview"), note = el.querySelector(".md-tabnote");
+  if (!ta || !pv) return;
+  let seq = 0;
+  el.querySelectorAll("[data-mdtab]").forEach((b) => b.onclick = async () => {
+    const tab = b.dataset.mdtab, my = ++seq;
+    el.querySelectorAll("[data-mdtab]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    note.textContent = ""; ta.hidden = tab !== "write"; pv.hidden = tab === "write";
+    if (tab === "write") return ta.focus();
+    if (tab === "preview") { pv.innerHTML = md(ta.value); return; }
+    pv.innerHTML = `<div class="note"><span class="spin"></span>Asking GitHub to render it…</div>`;
+    try {
+      const r = await api("/api/markdown", { text: ta.value });
+      if (my !== seq) return;
+      pv.innerHTML = ghHtml(r.html); note.textContent = "Rendered by GitHub. Nothing was posted.";
+    } catch (e) { if (my === seq) pv.innerHTML = `<div class="note">GitHub preview failed: ${esc(e.message)}</div>`; }
+  });
+}
+
+// Triage reports: the scheduled routine rewrites the body of a pinned issue with its last two reports.
+let REPORTS_LOADED_AT = 0;
+async function loadReports(force) {
+  if (!force && Date.now() - REPORTS_LOADED_AT < 60000) return;  // tab switches don't refetch within a minute
+  if (!SNAP?.workflow.reportsEnabled) return;
+  const box = $("#reports");
+  if (!REPORTS_LOADED_AT) box.innerHTML = `<div class="note"><span class="spin"></span>Reading the reports from GitHub…</div>`;
+  let d;
+  try { const r = await projectFetch("/api/triage-reports", { cache: "no-store" }); d = await r.json(); if (!r.ok) throw new Error(d.error || r.statusText); }
+  catch (e) { box.innerHTML = `<div class="note">Could not load the reports: ${esc(e.message)}</div>`; return; }
+  REPORTS_LOADED_AT = Date.now();
+  $("#rp-meta").innerHTML = `the latest reports saved in the configured issue · stored in ${ghLink(d.issue, d.url)}`;
+  if (!d.reports.length) { box.innerHTML = `<div class="empty">No reports saved to ${ghLink(d.issue, d.url)}.</div>`; return; }
+  // Runs are at most 16 h apart (00:00 and 16:00 UTC), so an older newest report means a run did not save one.
+  box.innerHTML =
+    d.reports.map((r, i) => `<div style="margin-bottom:18px">
+      <h3 class="small" style="margin:0 0 6px">${i ? "Previous run" : "Latest run"} · ${esc(new Date(r.at).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))} <span class="muted">(${ago(r.at)})</span></h3>
+      <div class="md-box" style="max-height:none">${md(r.markdown)}</div></div>`).join("");
+}
+$("#rp-reload").onclick = () => loadReports(true);
+
+// Fallback when the vendor libraries did not load: headings, lists, bold, code, links only.
+function mdBasic(src) {
+  const inline = (x) => esc(x)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https:\/\/github\.com\/[^\s)<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  const out = []; let list = null, code = null;
+  for (const line of (src || "").replace(/\r/g, "").split("\n")) {
+    if (code !== null) { if (/^```/.test(line)) { out.push(`<pre class="small">${esc(code)}</pre>`); code = null; } else code += line + "\n"; continue; }
+    if (/^```/.test(line)) { if (list) { out.push(`</${list}>`); list = null; } code = ""; continue; }
+    const li = line.match(/^\s*([-*]|\d+\.)\s+(.*)/);
+    if (li) { const t = /\d/.test(li[1]) ? "ol" : "ul"; if (list !== t) { if (list) out.push(`</${list}>`); out.push(`<${t}>`); list = t; } out.push(`<li>${inline(li[2])}</li>`); continue; }
+    if (list) { out.push(`</${list}>`); list = null; }
+    const h = line.match(/^(#{1,4})\s+(.*)/);
+    if (h) out.push(`<h${h[1].length + 2} style="margin:12px 0 4px">${inline(h[2])}</h${h[1].length + 2}>`);
+    else if (line.trim()) out.push(`<p style="margin:6px 0">${inline(line)}</p>`);
+  }
+  if (list) out.push(`</${list}>`);
+  if (code !== null) out.push(`<pre class="small">${esc(code)}</pre>`);
+  return out.join("");
+}
+
+async function openDesign(n) {
+  const el = $("#draft");
+  OPEN_JOB = null; el.dataset.job = "design-" + n; el.dataset.status = ""; el.hidden = false;
+  el.innerHTML = `<h2>Design for #${n} <small>loading from GitHub…</small></h2>`;
+  el.scrollIntoView({ behavior: "smooth" });
+  let d;
+  try { const r = await projectFetch(`/api/issues/${n}/design`, { cache: "no-store" }); d = await r.json(); if (!r.ok) throw new Error(d.error || r.statusText); }
+  catch (er) { el.innerHTML = `<h2>Design for #${n}</h2><div class="pad"><div class="note">Could not load it: ${esc(er.message)}</div></div>`; return; }
+  const g = d.design;
+  const after = d.after.length ? `<h3 class="small" style="margin-top:16px">Since it was posted: ${d.after.length} comment(s) <span class="pill warn">read before approving</span></h3>` +
+    d.after.map((c) => `<div class="note" style="margin:6px 0"><strong>${esc(c.by)}</strong> · ${ago(c.at)} · <a href="${esc(c.url)}" target="_blank" rel="noopener">link</a>${md(c.body)}</div>`).join("")
+    : `<div class="small muted" style="margin-top:12px">No comments since the design was posted.</div>`;
+  el.innerHTML = `<h2>Design for ${ghLink(n, d.issueUrl)} <small>${esc(d.title)}</small>
+      <span class="toolbar"><button class="small" id="dr-close">Close</button></span></h2>
+    <div class="pad">
+      <div class="small muted">Posted by ${esc(g.by)} ${ago(g.at)}${g.edited ? ' · <span class="pill warn">edited after posting</span>' : ""}${d.earlierDesigns ? ` · revision ${d.earlierDesigns + 1} (${d.earlierDesigns} earlier proposal(s) on the issue)` : ""} ·
+        <a href="${esc(g.url)}" target="_blank" rel="noopener">open on GitHub</a> · status ${esc(d.status || "none")}${d.assignees.length ? " · assigned " + esc(d.assignees.join(", ")) : " · unclaimed"}</div>
+      <div class="md-tabs">
+        <button type="button" class="small" data-ds="local" aria-pressed="true">Rendered</button>
+        <button type="button" class="small" data-ds="github" aria-pressed="false" title="Ask GitHub to render it exactly as it appears there">GitHub preview</button>
+        <button type="button" class="small" data-ds="source" aria-pressed="false">Source</button>
+        <span class="note md-tabnote"></span></div>
+      <div class="design-body md-box" id="ds-body">${md(g.body)}</div>
+      ${after}
+      <div class="draft-bar" style="margin-top:12px"><span style="flex:1"></span>
+        ${d.approvable ? `<button class="primary" id="ds-approve">Approve this design</button>`
+          : d.implementable ? `<button class="primary" id="ds-implement">Implement this design</button>`
+          : `<span class="pill">${esc(d.designApproved ? "Implement unavailable: " + (d.implementReason || "") : "not waiting on a design review")}</span>`}</div>
+      ${d.designApproved ? `<div class="small" style="margin-top:8px"><span class="pill ok">approved</span> ${d.approval ? `by ${esc(d.approval.by)} ${ago(d.approval.at)} · <a href="${esc(d.approval.url)}" target="_blank" rel="noopener">approval comment</a>` : "(no approval comment found; label only)"}</div>` : ""}
+      <div class="note" style="margin-top:8px">${d.approvable
+        ? `Approval is pinned to exactly the text above: if the design is edited or a newer proposal is posted before you press it, it is refused.
+        Approving adds <code>${esc(specialLabel("design_approved"))}</code>, updates any configured status, and posts a comment linking to this design.`
+        : `Implement is pinned to exactly the text above: if the design changes before the run starts, the run refuses.
+        An agent writes the change on a local branch (${ICFG.agent === "claude" ? `up to $${ICFG.max_budget_usd}, ` : ""}${ICFG.timeout_min} min), then the full local gate runs; this can take an hour or more. Nothing is pushed until you publish it from Runs.`}</div>
+    </div>`;
+  $("#dr-close").onclick = () => { el.hidden = true; el.dataset.job = ""; };
+  let dsSeq = 0;
+  el.querySelectorAll("[data-ds]").forEach((b) => b.onclick = async () => {
+    const mode = b.dataset.ds, my = ++dsSeq, box = $("#ds-body"), note = el.querySelector(".md-tabnote");
+    el.querySelectorAll("[data-ds]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    note.textContent = "";
+    if (mode === "local") { box.innerHTML = md(g.body); return; }
+    if (mode === "source") { box.innerHTML = `<pre class="small" style="white-space:pre-wrap;margin:0">${esc(g.body)}</pre>`; return; }
+    box.innerHTML = `<div class="note"><span class="spin"></span>Asking GitHub to render it…</div>`;
+    try { const r = await api("/api/markdown", { text: g.body }); if (my === dsSeq) { box.innerHTML = ghHtml(r.html); note.textContent = "Rendered by GitHub."; } }
+    catch (er) { if (my === dsSeq) box.innerHTML = `<div class="note">GitHub preview failed: ${esc(er.message)}</div>`; }
+  });
+  if ($("#ds-implement")) $("#ds-implement").onclick = async () => {
+    if (!confirm(`Implement #${n} from the design you just read?`)) return;
+    const b = $("#ds-implement"); b.disabled = true; b.textContent = "Queuing…";
+    try {
+      const r = await api("/api/jobs", { task: "implement", issues: [n], digest: g.digest });
+      if (r.skipped.length) throw new Error(r.skipped.map((s) => s.reason).join("; "));
+      showErr(""); el.hidden = true; el.dataset.job = ""; showTab("work"); showWorkSub("runs"); await loadJobs();
+    } catch (er) { showErr("Implement failed to start: " + er.message); b.disabled = false; b.textContent = "Implement this design"; }
+  };
+  if (!d.approvable) return;
+  $("#ds-approve").onclick = async () => {
+    if (!confirm(`Approve the design on #${n} as you just read it?`)) return;
+    const b = $("#ds-approve"); b.disabled = true; b.textContent = "Approving…";
+    try { await api(`/api/issues/${n}/approve-design`, { digest: g.digest }); showErr(""); el.hidden = true; el.dataset.job = ""; await refresh(); }
+    catch (er) { showErr("Approve failed: " + er.message); b.disabled = false; b.textContent = "Approve this design"; }
+  };
+}
+
+function renderStopped(j, el) {
+  const posted = j.status === "posted";
+  el.innerHTML = `<h2>Implementation stopped ${ghLink(j.pr, j.url)} <small>from ${esc(j.base)} <code>${(j.head || "").slice(0, 9)}</code> · no code was written · ${esc(j.summary || "")}</small>
+      <span class="toolbar"><button class="small" id="dr-close">Close</button></span></h2>
+    <div class="pad">
+      ${posted ? `<div class="note">Blocker posted ${ago(j.posted.at)} by ${esc(j.posted.by)}: ${esc(j.posted.actions.join(", "))}. <a href="${esc(j.posted.url)}" target="_blank" rel="noopener">Open on GitHub</a></div>` : ""}
+      <h3 class="small">Why the agent stopped</h3>
+      <div class="design-body md-box" style="max-height:420px">${md(j.explanation || "")}</div>
+      <h3 class="small" style="margin-top:14px">Comment for the issue ${posted ? "" : "(edit before posting)"}</h3>
+      ${mdEditor(j.body, posted)}
+      ${posted ? "" : `<div class="draft-bar">
+        <label class="small">then set <select id="dr-status">
+          <option value="">no status change</option>
+          ${["needs-information", "waiting-on-dependency", "design-review", "needs-scope-review"].map(statusLabel)
+            .filter(Boolean).map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join("")}</select></label>
+        <span style="flex:1"></span>
+        <button id="dr-discard">Dismiss</button><button class="primary" id="dr-post">Post blocker to issue</button></div>
+      <div class="note" style="margin-top:8px">Posting re-checks that #${j.pr} is open and its status is unchanged since the run started, then comments under your account.</div>`}
+    </div>`;
+  $("#dr-close").onclick = () => { OPEN_JOB = null; el.hidden = true; };
+  wireEditor(el);
+  if (posted) return;
+  $("#dr-discard").onclick = async () => { try { await api(`/api/jobs/${j.id}/dismiss`); OPEN_JOB = null; el.hidden = true; await loadJobs(); } catch (er) { showErr(er.message); } };
+  $("#dr-post").onclick = async () => {
+    const body = $("#dr-body").value, status = $("#dr-status").value;
+    if (!confirm(`Post this blocker on issue #${j.pr}${status ? " and set " + status : ""}?`)) return;
+    const b = $("#dr-post"); b.disabled = true; b.textContent = "Posting…";
+    try { await api(`/api/jobs/${j.id}/post`, { body, opts: { status } }); showErr(""); await loadJobs(); }
+    catch (er) { showErr("Post failed: " + er.message); b.disabled = false; b.textContent = "Post blocker to issue"; }
+  };
+}
+
+function renderImpl(j, el) {
+  if (j.status === "stopped" || (j.status === "posted" && j.explanation)) return renderStopped(j, el);
+  const posted = j.status === "posted", b = j.branch || {}, gate = j.gate || [];
+  const failed = gate.filter((g) => !g.ok);
+  const problems = [...(b.uncommitted && b.uncommitted.length ? [`${b.uncommitted.length} uncommitted change(s)`] : []),
+    ...(b.mergeCommits ? [`${b.mergeCommits} merge commit(s)`] : [])];
+  const gateRows = gate.map((g) => `<tr><td>${g.ok ? '<span class="pill ok">pass</span>' : '<span class="pill bad">fail</span>'}</td>
+      <td class="mono small">${esc(g.cmd)}</td><td class="small mono">${g.sec != null ? g.sec + "s" : ""}</td></tr>
+      ${g.ok ? "" : `<tr><td></td><td colspan="2"><pre class="small" style="white-space:pre-wrap;margin:0">${esc(g.tail || "")}</pre></td></tr>`}`).join("");
+  el.innerHTML = `<h2>${posted ? "Published" : "Implementation"} ${ghLink(j.pr, j.url)} <small>branch <code>${esc((j.facts || {}).branch || "")}</code> from ${esc(j.base)} <code>${(j.head || "").slice(0, 9)}</code> · ${esc(j.summary || "")}</small>
+      <span class="toolbar"><button class="small" id="dr-close">Close</button></span></h2>
+    <div class="pad">
+      ${posted ? `<div class="note">Published ${ago(j.posted.at)} by ${esc(j.posted.by)}: ${esc(j.posted.actions.join(", "))}. <a href="${esc(j.posted.url)}" target="_blank" rel="noopener">Open the PR</a></div>` : ""}
+      <h3 class="small">Local validation ${!gate.length ? '<span class="pill">no commands configured</span>' : j.gateOk ? '<span class="pill ok">all pass</span>' : '<span class="pill bad">not clean</span>'}</h3>
+      <table class="small">${gateRows || '<tr><td class="empty">No gate results.</td></tr>'}</table>
+      ${problems.length ? `<div class="note"><span class="pill bad">${esc(problems.join(", "))}</span></div>` : ""}
+      <h3 class="small">Commits</h3>
+      <ul class="small mono">${(b.commits || []).map((c) => `<li>${c.sha.slice(0, 9)} ${esc(c.subject)}</li>`).join("")}</ul>
+      <details><summary class="small">Diff stat</summary><pre class="small">${esc(b.diffStat || "")}</pre></details>
+      <details id="impl-diff"><summary class="small">Full diff</summary><pre class="small" style="max-height:480px;overflow:auto">loading…</pre></details>
+      <label class="small" style="display:block;margin-top:10px">PR title <input id="dr-title" style="width:100%" value="${esc(j.prTitle || "")}" ${posted ? "readonly" : ""}></label>
+      ${mdEditor(j.body, posted)}
+      ${posted ? "" : `<div class="draft-bar">
+        <label class="small"><input type="checkbox" id="dr-draft" checked> open as a draft PR</label>
+        ${failed.length || problems.length ? `<label class="small"><input type="checkbox" id="dr-force"> publish despite the failing gate (always as a draft)</label>` : ""}
+        <span style="flex:1"></span>
+        <button id="dr-discard">Discard</button><button class="primary" id="dr-post">Publish PR</button></div>
+      <div class="note" style="margin-top:8px">Publishing rechecks the branch, design approval, and issue ownership. Then it opens the PR ${ICFG.gh_token_env ? "as the configured bot" : "under your GitHub account"}, assigns the issue, and applies any configured labels.</div>`}
+    </div>`;
+  $("#dr-close").onclick = () => { OPEN_JOB = null; el.hidden = true; };
+  $("#impl-diff").addEventListener("toggle", async (ev) => {
+    if (!ev.target.open || ev.target.dataset.loaded) return;
+    try { const r = await projectFetch(`/api/jobs/${j.id}/diff`, { cache: "no-store" }); ev.target.querySelector("pre").textContent = await r.text(); ev.target.dataset.loaded = 1; }
+    catch (er) { ev.target.querySelector("pre").textContent = "Could not load the diff: " + er.message; }
+  });
+  wireEditor(el);
+  if (posted) return;
+  $("#dr-discard").onclick = async () => {
+    if (!confirm(`Discard the implementation of #${j.pr}? The local branch and worktree are deleted. Nothing was pushed.`)) return;
+    try { await api(`/api/jobs/${j.id}/dismiss`); OPEN_JOB = null; el.hidden = true; await loadJobs(); } catch (er) { showErr(er.message); }
+  };
+  $("#dr-post").onclick = async () => {
+    const title = $("#dr-title").value, body = $("#dr-body").value;
+    const force = $("#dr-force") ? $("#dr-force").checked : false;
+    const draft = $("#dr-draft").checked || force;
+    if (!confirm(`Push ${(j.facts || {}).branch} and open ${draft ? "a draft PR" : "a PR"} "${title}" for #${j.pr}, then claim the issue?`)) return;
+    const btn = $("#dr-post"); btn.disabled = true; btn.textContent = "Publishing…";
+    try { await api(`/api/jobs/${j.id}/post`, { title, body, opts: { draft, allowFailing: force } }); showErr(""); await loadJobs(); }
+    catch (er) { showErr("Publish failed: " + er.message); btn.disabled = false; btn.textContent = "Publish PR"; }
+  };
+}
+
+async function startReviews(body) {
+  try {
+    const r = await api("/api/jobs", body);
+    const sk = r.skipped.map((s) => `#${s.pr}: ${s.reason}`).join("; ");
+    showErr(sk ? `Started ${r.created.length}. Skipped ${sk}` : "");
+    showTab("work"); await loadJobs();
+  } catch (e) { showErr("Could not start reviews: " + e.message); }
+}
+$("#rv-all").onclick = () => {
+  const n = CANDS.length;
+  if (confirm(`Draft reviews for all ${n} PR(s) waiting on review? They run one at a time, ${CFG.agent === "claude" ? `up to $${CFG.max_budget_usd} each` : "using Codex"}. Nothing is posted.`))
+    startReviews({ allWaiting: true });
+};
+$("#rv-selected").onclick = () => {
+  const prs = [...document.querySelectorAll("#cands input:checked")].map((c) => +c.value);
+  if (!prs.length) return showErr("Select at least one PR first.");
+  startReviews({ prs });
+};
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.review) { startReviews({ prs: [+t.dataset.review] }); }
+  else if (t.dataset.itask) {
+    e.preventDefault();
+    if (t.dataset.itask === "implement" && !confirm(`Implement issue #${t.dataset.num} from its approved design?\n\nAn agent edits code on a local branch (${ICFG.agent === "claude" ? `up to $${ICFG.max_budget_usd}, ` : ""}${ICFG.timeout_min} min), then the full local gate runs. This can take an hour or more. Nothing is pushed until you publish.`)) return;
+    startTask(t.dataset.itask, [+t.dataset.num]);
+  }
+  else if (t.dataset.land) {
+    e.preventDefault();
+    const n = t.dataset.land, h = t.dataset.head;
+    if (!confirm(`Land PR #${n} at ${h}?
+
+The gates are re-checked live first; if the head moved, nothing happens.` +
+      (t.dataset.auth && SNAP.workflow.postAuthorizationComment ? "\n\nThis posts your authorization on the PR." : "") +
+      `
+
+Merge into ${SNAP.baseBranch} using ${SNAP.rules.merge_method}, pinned to this commit.`)) return;
+    t.disabled = true; t.textContent = "Landing…";
+    try {
+      const r = await api(`/api/prs/${n}/land`, { head: h });
+      const iss = Object.entries(r.issues || {}).map(([k, v]) => `#${k} ${v}`).join(", ");
+      showErr(""); alert(r.queued ? `#${n} is queued on GitHub.` : `#${n} merged as ${r.merge.slice(0, 7)}.${iss ? " Issues: " + iss + "." : ""}`); await refresh();
+    } catch (er) { showErr("Land failed: " + er.message); t.disabled = false; t.textContent = `Land @${h.slice(0, 7)}`; }
+  }
+  else if (t.dataset.ready || t.dataset.rebase) {
+    e.preventDefault();
+    const rebase = !!t.dataset.rebase, n = rebase ? t.dataset.rebase : t.dataset.ready, h = t.dataset.head, label = t.textContent;
+    if (!confirm(rebase
+      ? `Rebase PR #${n} (head ${h.slice(0, 9)}) onto ${SNAP.baseBranch}?\n\nThis creates a new commit to check and review. Refused if the head moved.`
+      : `Mark PR #${n} ready for review (head ${h.slice(0, 9)})?\n\nIt stops being a draft, under your GitHub account. Refused if the head moved.`)) return;
+    t.disabled = true; t.textContent = rebase ? "Rebasing…" : "Marking…";
+    try {
+      const r = await api(`/api/prs/${n}/${rebase ? "rebase" : "ready"}`, { head: h });
+      showErr("");
+      alert(rebase ? `#${n} rebased: new head ${r.head.slice(0, 9)}. Checks are running; review the new head once they pass.` : `#${n} is ready for review.`);
+      await refresh();
+    } catch (er) { showErr((rebase ? "Rebase" : "Mark ready") + " failed: " + er.message); t.disabled = false; t.textContent = label; }
+  }
+  else if (t.dataset.design) { e.preventDefault(); openDesign(+t.dataset.design); }
+  else if (t.dataset.open) { OPEN_JOB = t.dataset.open; $("#draft").dataset.job = ""; renderDraft(JOBS.find((j) => j.id === OPEN_JOB)); $("#draft").scrollIntoView({ behavior: "smooth" }); }
+  else if (t.dataset.cancel) { try { await api(`/api/jobs/${t.dataset.cancel}/cancel`); await loadJobs(); } catch (er) { showErr(er.message); } }
+  else if (t.dataset.dismiss) { try { await api(`/api/jobs/${t.dataset.dismiss}/dismiss`); await loadJobs(); } catch (er) { showErr(er.message); } }
+});
+
+function updateStamp() { if (SNAP) $("#stamp").textContent = `snapshot ${ago(SNAP.generatedAt)} · ${new Date(SNAP.generatedAt).toLocaleTimeString()}`; }
+function showErr(msg) { const e = $("#err"); e.textContent = msg; e.style.display = msg ? "block" : "none"; }
+
+async function load() {
+  try {
+    const r = await projectFetch("/api/snapshot", { cache: "no-store" });
+    if (r.status === 404) return refresh();
+    if (!r.ok) throw new Error(await r.text());
+    render(await r.json()); showErr(""); loadChanges();
+  } catch (e) { showErr("Could not load snapshot: " + e.message); }
+}
+async function refresh() {
+  const b = $("#refresh"); b.disabled = true; b.textContent = "Refreshing…";
+  try {
+    const r = await projectFetch("/api/refresh", { method: "POST", headers: { "X-Triage": "1" } });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || r.statusText);
+    render(body); showErr(""); loadChanges();
+  } catch (e) { showErr("Refresh failed; showing the previous snapshot. " + e.message); }
+  finally { b.disabled = false; b.textContent = "Refresh"; }
+}
+$("#refresh").onclick = refresh;
+setInterval(updateStamp, 30000);
+if (PROJECT_ROUTE) load().then(loadJobs);
+</script>
+<script src="/workflow-editor.js"></script>
+<script src="/projects.js"></script>
+<script src="/inbox.js"></script>
+</body>
+</html>

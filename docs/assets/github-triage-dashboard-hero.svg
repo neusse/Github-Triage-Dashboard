@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">GitHub Triage Dashboard</title>
+  <desc id="desc">A local workspace for reviewing drafts, tracking decisions, and scheduling triage across GitHub repositories.</desc>
+  <defs>
+    <linearGradient id="canvas" x1="0" y1="0" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#101d32"/>
+      <stop offset=".6" stop-color="#142d45"/>
+      <stop offset="1" stop-color="#104542"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="74" y1="0" x2="530" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#66ead4"/>
+      <stop offset="1" stop-color="#95c7ff"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M0 32V0h32" fill="none" stroke="#a4b8d1" stroke-opacity=".12"/>
+    </pattern>
+    <clipPath id="frame"><rect width="1200" height="360" rx="28"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="360" fill="url(#canvas)"/>
+    <rect x="608" width="592" height="360" fill="url(#grid)"/>
+    <path d="M590 297h77m-47 28h102m375-284h61m-93-16h87" fill="none" stroke="#5ee1cc" stroke-opacity=".35" stroke-linecap="round"/>
+    <circle cx="590" cy="297" r="3" fill="#5ee1cc"/>
+    <circle cx="1158" cy="41" r="3" fill="#a5defc"/>
+    <rect x="74" y="53" width="46" height="46" rx="12" fill="#1e3c52" stroke="#416178"/>
+    <path d="M86 68h6m6 0h10M86 76h6m6 0h10M98 85h10" fill="none" stroke="#d6e6f5" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="m85 85 2.5 2.5 4.5-5" fill="none" stroke="#5ee1cc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <g font-family="Arial, sans-serif">
+      <text x="135" y="81" fill="#b8d4e7" font-size="14" font-weight="700" letter-spacing="2">LOCAL WORKSPACE</text>
+      <text x="72" y="167" fill="#f2f7fc" font-size="60" font-weight="700">GitHub Triage</text>
+      <text x="72" y="234" fill="url(#accent)" font-size="67" font-weight="700">Dashboard</text>
+      <text x="75" y="286" fill="#b8d4e7" font-size="21">Review work across repositories.</text>
+    </g>
+    <rect x="659" y="58" width="465" height="258" rx="18" fill="#081a26" opacity=".42"/>
+    <rect x="649" y="48" width="465" height="258" rx="18" fill="#132638" stroke="#426270"/>
+    <path d="M649 101h465" stroke="#3e586a"/>
+    <g font-family="Arial, sans-serif">
+      <circle cx="678" cy="76" r="5" fill="#5ee1cc"/>
+      <text x="694" y="82" fill="#f2f7fc" font-size="17" font-weight="700">Cross-project inbox</text>
+      <rect x="671" y="114" width="421" height="52" rx="8" fill="#1b334a"/>
+      <rect x="671" y="177" width="421" height="52" rx="8" fill="#1b334a"/>
+      <rect x="671" y="240" width="421" height="52" rx="8" fill="#1b334a"/>
+      <g fill="#e7f2fb" font-size="15" font-weight="700">
+        <text x="718" y="138">Drafts</text>
+        <text x="718" y="201">Decisions</text>
+        <text x="718" y="264">Schedules</text>
+      </g>
+      <g fill="#a8c1d4" font-size="12">
+        <text x="718" y="154">Review before posting</text>
+        <text x="718" y="217">See what needs a maintainer</text>
+        <text x="718" y="280">Track triage runs</text>
+      </g>
+    </g>
+    <g fill="none" stroke="#68e1cc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M686 134h14v12h-14zM689 138h8m-8 4h5"/>
+      <path d="m693 195 7 8-7 8-7-8z"/>
+      <circle cx="693" cy="266" r="8"/><path d="M693 262v4l3 2"/>
+    </g>
+    <path d="m1067 137 4 4-4 4m0 55 4 4-4 4m0 55 4 4-4 4" fill="none" stroke="#9fc6de" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <rect x=".5" y=".5" width="1199" height="359" rx="27.5" fill="none" stroke="#436174"/>
+</svg>
